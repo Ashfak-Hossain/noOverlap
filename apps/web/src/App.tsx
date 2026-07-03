@@ -1,7 +1,12 @@
-import './App.css';
+import { HealthStatus } from './health/HealthStatus';
 
 function App() {
-  return <>Hello World</>;
+  return (
+    <main>
+      <h1>noOverlap</h1>
+      <HealthStatus />
+    </main>
+  );
 }
 
 export default App;
