@@ -1,0 +1,42 @@
+# --- Local-only project documentation & AI tooling ---
+CLAUDE.md
+.claude/
+docs/
+PROGRESS.md
+
+# --- Environment & secrets ---
+.env
+.env.*
+!.env.example
+
+# --- Node / package managers ---
+node_modules/
+.pnpm-store/
+npm-debug.log*
+pnpm-debug.log*
+
+# --- Build output ---
+dist/
+build/
+coverage/
+*.tsbuildinfo
+
+# --- Turborepo ---
+.turbo/
+
+# --- macOS ---
+.DS_Store
+.AppleDouble
+.LSOverride
+Icon
+._*
+.Spotlight-V100
+.Trashes
+
+# --- Editor ---
+.idea/
+.vscode/*
+!.vscode/extensions.json
+!.vscode/settings.json
+.history/
+*.vsix

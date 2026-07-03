@@ -1,0 +1,14 @@
+{
+  "name": "no-overlap",
+  "scripts": {
+    "test": "turbo run test",
+    "build": "turbo run build",
+    "lint": "turbo run lint",
+    "typecheck": "turbo run typecheck"
+  },
+  "private": true,
+  "packageManager": "pnpm@11.9.0",
+  "devDependencies": {
+    "turbo": "^2.10.2"
+  }
+}
