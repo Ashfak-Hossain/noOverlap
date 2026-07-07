@@ -29,7 +29,7 @@ CREATE TABLE "listings" (
     "city" TEXT NOT NULL,
     "nightly_price_cents" INTEGER NOT NULL,
     "max_guests" INTEGER NOT NULL,
-    "active" INTEGER NOT NULL DEFAULT 1,
+    "active" BOOLEAN NOT NULL DEFAULT true,
     "created_at" TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
 
     CONSTRAINT "listings_pkey" PRIMARY KEY ("id")
@@ -100,6 +100,9 @@ CREATE TABLE "reviews" (
 
 -- CreateIndex
 CREATE UNIQUE INDEX "users_email_key" ON "users"("email");
+
+-- CreateIndex
+CREATE INDEX "listings_city_idx" ON "listings"("city");
 
 -- CreateIndex
 CREATE INDEX "listings_host_id_idx" ON "listings"("host_id");

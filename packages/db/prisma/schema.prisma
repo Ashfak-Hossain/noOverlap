@@ -51,13 +51,14 @@ model Listing {
   city              String
   nightlyPriceCents Int      @map("nightly_price_cents")
   maxGuests         Int      @map("max_guests")
-  active            Int      @default(1)
-  createdAt         DateTime @default(now()) @map("created_at") @db.Timestamptz()
+  active            Boolean  @default(true)
+  createdAt         DateTime @default(now()) @map("created_at") @db.Timestamptz
 
   host               User                @relation(fields: [hostId], references: [id], onDelete: Cascade)
   availabilityBlocks AvailabilityBlock[]
   reservations       Reservation[]
 
+  @@index([city])
   @@index([hostId])
   @@map("listings")
 }
@@ -76,26 +77,25 @@ model AvailabilityBlock {
 }
 
 model Reservation {
-  id              String                    @id @default(uuid()) @db.Uuid
-  listingId       String                    @map("listing_id") @db.Uuid
-  guestId         String                    @map("guest_id") @db.Uuid
-  checkIn         DateTime                  @map("check_in") @db.Timestamptz
-  checkOut        DateTime                  @map("check_out") @db.Timestamptz
-  status          ReservationStatus         @default(HELD)
-  priceTotalCents Int                       @map("price_total_cents")
-  holdExpiresAt   DateTime                  @map("hold_expires_at") @db.Timestamptz
-  version         Int                       @default(0)
-  createdAt       DateTime                  @default(now()) @map("created_at") @db.Timestamptz
-  during          Unsupported("tstzrange")? @default(dbgenerated())
+  id              String            @id @default(uuid()) @db.Uuid
+  listingId       String            @map("listing_id") @db.Uuid
+  guestId         String            @map("guest_id") @db.Uuid
+  checkIn         DateTime          @map("check_in") @db.Timestamptz
+  checkOut        DateTime          @map("check_out") @db.Timestamptz
+  status          ReservationStatus @default(HELD)
+  priceTotalCents Int               @map("price_total_cents")
+  holdExpiresAt   DateTime          @map("hold_expires_at") @db.Timestamptz
+  version         Int               @default(0)
+  createdAt       DateTime          @default(now()) @map("created_at") @db.Timestamptz
 
   listing  Listing   @relation(fields: [listingId], references: [id], onDelete: Cascade)
   guest    User      @relation(fields: [guestId], references: [id], onDelete: Cascade)
   payments Payment[]
   review   Review?
 
-  // The `during tstzrange` column + GiST exclusion constraint are added by a RAW SQL migration
-  // Prisma can express neither range types nor exclusion constraints. `during`
-  // is DB-generated from (check_in, check_out); 
+  // No-overlap is enforced by a GiST EXCLUSION CONSTRAINT added in a raw SQL migration (ADR-0003).
+  // The constraint indexes the expression tstzrange(check_in, check_out, '[)') directly, so there
+  // is NO separate range column for Prisma to track. Prisma does not model exclusion constraints.
 
   @@index([listingId])
   @@index([guestId])
