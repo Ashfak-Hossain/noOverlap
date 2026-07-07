@@ -5,3 +5,139 @@ datasource db {
 generator client {
   provider = "prisma-client-js"
 }
+
+enum Role {
+  GUEST
+  HOST
+}
+
+enum ReservationStatus {
+  HELD
+  CONFIRMED
+  EXPIRED
+  CANCELLED
+  COMPLETED
+}
+
+enum PaymentStatus {
+  PENDING
+  SUCCEEDED
+  FAILED
+  REFUNDED
+}
+
+enum AvailabilityKind {
+  OPEN
+  CLOSED
+}
+
+model User {
+  id           String   @id @default(uuid()) @db.Uuid
+  email        String   @unique
+  passwordHash String   @map("password_hash")
+  role         Role
+  createdAt    DateTime @default(now()) @map("created_at") @db.Timestamptz()
+
+  listings     Listing[]
+  reservations Reservation[]
+
+  @@map("users")
+}
+
+model Listing {
+  id                String   @id @default(uuid()) @db.Uuid
+  hostId            String   @map("host_id") @db.Uuid
+  title             String
+  city              String
+  nightlyPriceCents Int      @map("nightly_price_cents")
+  maxGuests         Int      @map("max_guests")
+  active            Int      @default(1)
+  createdAt         DateTime @default(now()) @map("created_at") @db.Timestamptz()
+
+  host               User                @relation(fields: [hostId], references: [id], onDelete: Cascade)
+  availabilityBlocks AvailabilityBlock[]
+  reservations       Reservation[]
+
+  @@index([hostId])
+  @@map("listings")
+}
+
+model AvailabilityBlock {
+  id        String           @id @default(uuid()) @db.Uuid
+  listingId String           @map("listing_id") @db.Uuid
+  startsAt  DateTime         @map("starts_at") @db.Timestamptz()
+  endsAt    DateTime         @map("ends_at") @db.Timestamptz()
+  kind      AvailabilityKind
+
+  listing Listing @relation(fields: [listingId], references: [id], onDelete: Cascade)
+
+  @@index([listingId])
+  @@map("availability_blocks")
+}
+
+model Reservation {
+  id              String                    @id @default(uuid()) @db.Uuid
+  listingId       String                    @map("listing_id") @db.Uuid
+  guestId         String                    @map("guest_id") @db.Uuid
+  checkIn         DateTime                  @map("check_in") @db.Timestamptz
+  checkOut        DateTime                  @map("check_out") @db.Timestamptz
+  status          ReservationStatus         @default(HELD)
+  priceTotalCents Int                       @map("price_total_cents")
+  holdExpiresAt   DateTime                  @map("hold_expires_at") @db.Timestamptz
+  version         Int                       @default(0)
+  createdAt       DateTime                  @default(now()) @map("created_at") @db.Timestamptz
+  during          Unsupported("tstzrange")? @default(dbgenerated())
+
+  listing  Listing   @relation(fields: [listingId], references: [id], onDelete: Cascade)
+  guest    User      @relation(fields: [guestId], references: [id], onDelete: Cascade)
+  payments Payment[]
+  review   Review?
+
+  // The `during tstzrange` column + GiST exclusion constraint are added by a RAW SQL migration
+  // Prisma can express neither range types nor exclusion constraints. `during`
+  // is DB-generated from (check_in, check_out); 
+
+  @@index([listingId])
+  @@index([guestId])
+  @@index([status])
+  @@map("reservations")
+}
+
+model Payment {
+  id             String        @id @default(uuid()) @db.Uuid
+  reservationId  String        @map("reservation_id") @db.Uuid
+  status         PaymentStatus @default(PENDING)
+  providerRef    String?       @map("provider_ref")
+  idempotencyKey String        @unique @map("idempotency_key")
+  amountCents    Int           @map("amount_cents")
+  createdAt      DateTime      @default(now()) @map("created_at") @db.Timestamptz
+
+  reservation Reservation @relation(fields: [reservationId], references: [id], onDelete: Cascade)
+
+  @@index([reservationId])
+  @@map("payments")
+}
+
+model Outbox {
+  id          String    @id @default(uuid()) @db.Uuid
+  aggregateId String    @map("aggregate_id") @db.Uuid
+  type        String
+  payload     Json
+  publishedAt DateTime? @map("published_at") @db.Timestamptz
+  createdAt   DateTime  @default(now()) @map("created_at") @db.Timestamptz
+
+  @@index([publishedAt])
+  @@map("outbox")
+}
+
+model Review {
+  id            String   @id @default(uuid()) @db.Uuid
+  reservationId String   @unique @map("reservation_id") @db.Uuid
+  rating        Int
+  body          String?
+  createdAt     DateTime @default(now()) @map("created_at") @db.Timestamptz
+
+  reservation Reservation @relation(fields: [reservationId], references: [id], onDelete: Cascade)
+
+  @@map("reviews")
+}
