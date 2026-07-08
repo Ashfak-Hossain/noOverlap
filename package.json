@@ -4,7 +4,8 @@
     "test": "turbo run test",
     "build": "turbo run build",
     "lint": "turbo run lint",
-    "typecheck": "turbo run typecheck"
+    "typecheck": "turbo run typecheck",
+    "env:setup": "cp .env.example apps/api/.env && cp .env.example apps/worker/.env && cp .env.example packages/db/.env"
   },
   "private": true,
   "packageManager": "pnpm@11.9.0",

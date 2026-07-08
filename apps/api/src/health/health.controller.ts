@@ -5,9 +5,8 @@ import {
   HttpStatus,
   Inject,
 } from '@nestjs/common';
-import type { Pool } from 'pg';
 import type Redis from 'ioredis';
-import { PG_POOL } from './postgres.provider';
+import { PrismaService } from '../prisma/prisma.service';
 import { REDIS_CLIENT } from './redis.provider';
 
 type DepStatus = 'up' | 'down';
@@ -21,7 +20,7 @@ interface HealthResponse {
 @Controller('health')
 export class HealthController {
   constructor(
-    @Inject(PG_POOL) private readonly pgPool: Pool,
+    private readonly prisma: PrismaService,
     @Inject(REDIS_CLIENT) private readonly redis: Redis,
   ) {}
 
@@ -36,7 +35,6 @@ export class HealthController {
       db,
       redis,
     };
-
     if (result.status === 'error') {
       throw new HttpException(result, HttpStatus.SERVICE_UNAVAILABLE);
     }
@@ -45,7 +43,7 @@ export class HealthController {
 
   private async checkPostgres(): Promise<DepStatus> {
     try {
-      await this.pgPool.query('SELECT 1');
+      await this.prisma.$queryRaw`SELECT 1`;
       return 'up';
     } catch {
       return 'down';
