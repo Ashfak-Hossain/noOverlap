@@ -22,6 +22,7 @@ export const ERROR_CATALOG = {
     title: 'Reservation slot no longer available',
   },
   INTERNAL: { status: 500, title: 'Internal server error' },
+  INVALID_CREDENTIALS: { status: 401, title: 'Invalid credentials' },
 } as const;
 
 export type ErrorCode = keyof typeof ERROR_CATALOG;

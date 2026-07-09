@@ -1,0 +1,150 @@
+{
+  "info": {
+    "name": "noOverlap API",
+    "description": "API test collection for the noOverlap booking platform.\n\nUsage:\n1. Start the API: `pnpm --filter api dev` (Postgres + Redis must be up via `docker compose up -d`).\n2. Run **Auth > Register** once, then **Auth > Login** — Login stores the access token in the `accessToken` collection variable, and Postman's cookie jar stores the HttpOnly refresh cookie automatically.\n3. Protected routes inherit `Authorization: Bearer {{accessToken}}` from the collection.\n\nThe collection tracks Phase 1.3 as it is built: Register + Login exist now; Refresh, Logout, and Me are added in 1.3.3 / 1.3.4.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "auth": {
+    "type": "bearer",
+    "bearer": [{ "key": "token", "value": "{{accessToken}}", "type": "string" }]
+  },
+  "variable": [
+    { "key": "baseUrl", "value": "http://localhost:3000" },
+    { "key": "email", "value": "guest@example.com" },
+    { "key": "password", "value": "correct-horse-battery-staple" },
+    { "key": "role", "value": "GUEST" },
+    { "key": "accessToken", "value": "" }
+  ],
+  "item": [
+    {
+      "name": "Auth",
+      "item": [
+        {
+          "name": "Register",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "// 201 on first run; 409 if this email is already registered (both are expected).",
+                  "pm.test('registered (201) or already exists (409)', () =>",
+                  "  pm.expect(pm.response.code).to.be.oneOf([201, 409]));",
+                  "if (pm.response.code === 201) {",
+                  "  const body = pm.response.json();",
+                  "  pm.test('response omits the password hash', () =>",
+                  "    pm.expect(body).to.not.have.property('passwordHash'));",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "auth": { "type": "noauth" },
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"{{email}}\",\n  \"password\": \"{{password}}\",\n  \"role\": \"{{role}}\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/auth/register",
+              "host": ["{{baseUrl}}"],
+              "path": ["auth", "register"]
+            },
+            "description": "Create a user. Password is Argon2id-hashed; email uniqueness is enforced by the DB (duplicate -> 409 problem+json)."
+          }
+        },
+        {
+          "name": "Login",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status is 200', () => pm.response.to.have.status(200));",
+                  "const body = pm.response.json();",
+                  "pm.test('accessToken present', () => pm.expect(body.accessToken).to.be.a('string'));",
+                  "pm.collectionVariables.set('accessToken', body.accessToken);",
+                  "pm.test('refresh cookie set (HttpOnly)', () => {",
+                  "  const setCookie = pm.response.headers.get('Set-Cookie') || '';",
+                  "  pm.expect(setCookie).to.include('refresh_token');",
+                  "  pm.expect(setCookie).to.match(/HttpOnly/i);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "auth": { "type": "noauth" },
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"{{email}}\",\n  \"password\": \"{{password}}\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/auth/login",
+              "host": ["{{baseUrl}}"],
+              "path": ["auth", "login"]
+            },
+            "description": "Verify credentials -> RS256 access token in the body + rotating refresh token in an HttpOnly cookie."
+          }
+        },
+        {
+          "name": "Login - invalid credentials",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status is 401', () => pm.response.to.have.status(401));",
+                  "pm.test('generic invalid-credentials envelope', () => {",
+                  "  const body = pm.response.json();",
+                  "  pm.expect(body.title).to.eql('Invalid credentials');",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "auth": { "type": "noauth" },
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"{{email}}\",\n  \"password\": \"definitely-the-wrong-password\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/auth/login",
+              "host": ["{{baseUrl}}"],
+              "path": ["auth", "login"]
+            },
+            "description": "Wrong password returns the same 401 as an unknown email (no user enumeration, timing-equalized)."
+          }
+        }
+      ]
+    },
+    {
+      "name": "Health",
+      "item": [
+        {
+          "name": "Health",
+          "request": {
+            "auth": { "type": "noauth" },
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/health",
+              "host": ["{{baseUrl}}"],
+              "path": ["health"]
+            },
+            "description": "Liveness/readiness: checks Postgres + Redis. 200 when healthy, 503 when a dependency is down."
+          }
+        }
+      ]
+    }
+  ]
+}

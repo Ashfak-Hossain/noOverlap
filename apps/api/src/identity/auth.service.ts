@@ -1,17 +1,31 @@
 import { PrismaService } from 'src/prisma/prisma.service';
 import { RegisterDto } from './dto/register.dto';
 import { UserResponseDto } from './dto/user-response.dto';
-import { hash } from '@node-rs/argon2';
+import { hash, verify } from '@node-rs/argon2';
 import { Prisma } from '@no-overlap/db';
 import { AppException } from 'src/common/errors/app.exception';
 import { Injectable } from '@nestjs/common';
+import { IssuedRefresh, TokenService } from './tokens.service';
+import { LoginDto } from './dto/login.dto';
 
 /** Postgres unique-violation code surfaced by Prisma; here it means the email is already taken. */
 const PRISMA_UNIQUE_VIOLATION = 'P2002';
 
 @Injectable()
 export class AuthService {
-  constructor(private readonly prisma: PrismaService) {}
+  /**
+   * A valid Argon2 hash that no real password matches, computed once. Login verifies against it when
+   * the email is unknown, so unknown-email and wrong-password take the same time — response latency
+   * can't be used to enumerate which emails are registered.
+   */
+  private readonly dummyHash = hash(
+    'argon2-timing-equalizer-not-a-real-secret',
+  );
+
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly tokens: TokenService,
+  ) {}
 
   /**
    * Registers a new user with an Argon2id-hashed password.
@@ -50,5 +64,32 @@ export class AuthService {
       }
       throw error; // unexpected: generic 500
     }
+  }
+
+  async login(
+    dto: LoginDto,
+  ): Promise<{ accessToken: string; refresh: IssuedRefresh }> {
+    const user = await this.prisma.user.findUnique({
+      where: {
+        email: dto.email,
+      },
+      select: {
+        id: true,
+        role: true,
+        passwordHash: true,
+      },
+    });
+
+    const passwordOke = await verify(
+      user?.passwordHash ?? (await this.dummyHash),
+      dto.password,
+    );
+    if (!user || !passwordOke) {
+      throw new AppException('INVALID_CREDENTIALS');
+    }
+
+    const accessToken = await this.tokens.signAccessToken(user);
+    const refresh = await this.tokens.issueRefreshToken(user.id);
+    return { accessToken, refresh };
   }
 }

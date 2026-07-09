@@ -1,13 +1,29 @@
-import { Body, Controller, HttpCode, Post, HttpStatus } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  HttpCode,
+  Post,
+  HttpStatus,
+  Res,
+} from '@nestjs/common';
 import { AuthService } from './auth.service';
 import { RegisterDto } from './dto/register.dto';
 import { UserResponseDto } from './dto/user-response.dto';
 import {
   ApiConflictResponse,
   ApiCreatedResponse,
+  ApiOkResponse,
   ApiOperation,
   ApiTags,
+  ApiUnauthorizedResponse,
 } from '@nestjs/swagger';
+import { LoginDto } from './dto/login.dto';
+import type { Response } from 'express';
+import { ConfigService } from '@nestjs/config';
+import { LoginResponseDto } from './dto/login-response.dto';
+
+/** Cookie carrying the refresh token. Path-scoped to /auth so it rides only on refresh/logout. */
+const REFRESH_COOKIE = 'refresh_token';
 
 /**
  * HTTP boundary for the identity module's authentication surface.
@@ -20,7 +36,10 @@ import {
 @ApiTags('auth')
 @Controller('auth')
 export class AuthController {
-  constructor(private readonly AuthService: AuthService) {}
+  constructor(
+    private readonly authService: AuthService,
+    private readonly config: ConfigService,
+  ) {}
 
   /**
    * Registers a new user and returns the safe {@link UserResponseDto} projection.
@@ -38,6 +57,36 @@ export class AuthController {
     description: 'Email already registered (RFC 7807 problem + json).',
   })
   register(@Body() dto: RegisterDto): Promise<UserResponseDto> {
-    return this.AuthService.register(dto);
+    return this.authService.register(dto);
+  }
+
+  @Post('login')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Log in with email and password' })
+  @ApiOkResponse({ type: LoginResponseDto })
+  @ApiUnauthorizedResponse({
+    description: 'Invalid credentials (RFC 7807 problem+json).',
+  })
+  async login(
+    @Body() dto: LoginDto,
+    // passthrough: we set a cookie on the response but still return the DTO through Nest's normal
+    // serialization (and keep the global exception filter in play).
+    @Res({ passthrough: true }) res: Response,
+  ) {
+    const { accessToken, refresh } = await this.authService.login(dto);
+
+    // The refresh token lives ONLY in this HttpOnly cookie: script (hence XSS) cannot read it. It is
+    // path-scoped to /auth so it never rides along on ordinary API calls; `secure` makes it
+    // HTTPS-only outside dev; SameSite=lax blunts CSRF.
+
+    res.cookie(REFRESH_COOKIE, refresh.token, {
+      httpOnly: true,
+      secure: this.config.getOrThrow<string>('NODE_ENV') === 'production',
+      sameSite: 'lax',
+      path: '/auth',
+      expires: refresh.expiresAt,
+    });
+
+    return { accessToken };
   }
 }

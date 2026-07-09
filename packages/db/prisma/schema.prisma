@@ -1,3 +1,9 @@
+// Single source of truth for the schema, shared by `api` and the extracted `worker` via the
+// generated client in this package rather than each runtime owning its own copy.
+// The `reservations` no-overlap guarantee is NOT expressed here: it is a GiST exclusion
+// constraint added by a raw SQL migration alongside these Prisma migrations, because
+// Prisma's schema DSL cannot represent exclusion constraints.
+
 datasource db {
   provider = "postgresql"
 }
@@ -11,6 +17,10 @@ enum Role {
   HOST
 }
 
+// Reservation lifecycle: HELD -> CONFIRMED on payment success, HELD -> CANCELLED
+// on payment failure (compensation), HELD -> EXPIRED when hold_expires_at passes unpaid (swept by
+// a scheduled job), CONFIRMED -> COMPLETED after the stay. Only HELD/CONFIRMED are considered
+// "active" by the exclusion constraint's WHERE clause; the rest never block a slot.
 enum ReservationStatus {
   HELD
   CONFIRMED
@@ -26,6 +36,8 @@ enum PaymentStatus {
   REFUNDED
 }
 
+// Host-defined calendar windows: OPEN/CLOSED marks a listing's availability
+// independent of actual reservations.
 enum AvailabilityKind {
   OPEN
   CLOSED
@@ -38,8 +50,9 @@ model User {
   role         Role
   createdAt    DateTime @default(now()) @map("created_at") @db.Timestamptz()
 
-  listings     Listing[]
-  reservations Reservation[]
+  listings      Listing[]
+  reservations  Reservation[]
+  refreshTokens RefreshToken[]
 
   @@map("users")
 }
@@ -84,7 +97,12 @@ model Reservation {
   checkOut        DateTime          @map("check_out") @db.Timestamptz
   status          ReservationStatus @default(HELD)
   priceTotalCents Int               @map("price_total_cents")
+  // TTL for an unpaid HELD reservation; a scheduled sweep transitions rows past this timestamp to
+  // EXPIRED (design.md §7), which removes them from the exclusion constraint's active set.
   holdExpiresAt   DateTime          @map("hold_expires_at") @db.Timestamptz
+  // Not yet load-bearing: version-based optimistic locking was evaluated and rejected as the
+  // overlap-prevention mechanism (the exclusion constraint owns that). Reserved for a future
+  // optimistic-concurrency need on this row, not currently read or incremented by application code.
   version         Int               @default(0)
   createdAt       DateTime          @default(now()) @map("created_at") @db.Timestamptz
 
@@ -93,7 +111,7 @@ model Reservation {
   payments Payment[]
   review   Review?
 
-  // No-overlap is enforced by a GiST EXCLUSION CONSTRAINT added in a raw SQL migration (ADR-0003).
+  // No-overlap is enforced by a GiST EXCLUSION CONSTRAINT added in a raw SQL migration.
   // The constraint indexes the expression tstzrange(check_in, check_out, '[)') directly, so there
   // is NO separate range column for Prisma to track. Prisma does not model exclusion constraints.
 
@@ -103,6 +121,9 @@ model Reservation {
   @@map("reservations")
 }
 
+// idempotencyKey is unique because the worker charges the mock provider keyed by this value: a
+// redelivered charge message finds the existing row and returns its result instead of charging
+// twice. That is what makes at-least-once delivery from the outbox safe.
 model Payment {
   id             String        @id @default(uuid()) @db.Uuid
   reservationId  String        @map("reservation_id") @db.Uuid
@@ -118,6 +139,11 @@ model Payment {
   @@map("payments")
 }
 
+// Transactional outbox: written in the same DB transaction as the domain change it announces
+// so the event can never be lost or phantom-emitted relative
+// to that change. A polling relay selects publishedAt IS NULL rows and pushes them to BullMQ
+// using SELECT ... FOR UPDATE SKIP LOCKED, so multiple relay instances can't double-publish the
+// same row -- the index below serves that poll query.
 model Outbox {
   id          String    @id @default(uuid()) @db.Uuid
   aggregateId String    @map("aggregate_id") @db.Uuid
@@ -140,4 +166,26 @@ model Review {
   reservation Reservation @relation(fields: [reservationId], references: [id], onDelete: Cascade)
 
   @@map("reviews")
+}
+
+model RefreshToken {
+  id        String    @id @default(uuid()) @db.Uuid
+  userId    String    @map("user_id") @db.Uuid
+  // A rotation lineage: every token minted from one login shares a familyId. On reuse detection
+  // the whole family is revoked at once — that is what turns a stolen token into a signal.
+  familyId  String    @map("family_id") @db.Uuid
+  // Only the SHA-256 of the raw token is stored. The token is high-entropy random, so a fast hash
+  // is sufficient (Argon2 is for low-entropy passwords); the DB never holds anything replayable.
+  tokenHash String    @unique @map("token_hash")
+  expiresAt DateTime  @map("expires_at") @db.Timestamptz
+  // Set when the token is rotated or the family is revoked. A non-null value on a presented
+  // token means replay.
+  revokedAt DateTime? @map("revoked_at") @db.Timestamptz
+  createdAt DateTime  @default(now()) @map("created_at") @db.Timestamptz
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([familyId])
+  @@map("refresh_tokens")
 }
