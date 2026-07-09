@@ -13,7 +13,7 @@ import { AppException } from 'src/common/errors/app.exception';
  */
 @Injectable()
 export class ThrottlerProblemGuard extends ThrottlerGuard {
-  protected async throwThrottlingException(): Promise<void> {
+  protected throwThrottlingException(): Promise<void> {
     throw new AppException('RATE_LIMITED');
   }
 }
