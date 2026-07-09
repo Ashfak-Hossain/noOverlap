@@ -2,25 +2,28 @@ import {
   Body,
   Controller,
   HttpCode,
-  Post,
   HttpStatus,
+  Post,
+  Req,
   Res,
 } from '@nestjs/common';
-import { AuthService } from './auth.service';
-import { RegisterDto } from './dto/register.dto';
-import { UserResponseDto } from './dto/user-response.dto';
+import { ConfigService } from '@nestjs/config';
 import {
   ApiConflictResponse,
   ApiCreatedResponse,
+  ApiNoContentResponse,
   ApiOkResponse,
   ApiOperation,
   ApiTags,
   ApiUnauthorizedResponse,
 } from '@nestjs/swagger';
+import type { Request, Response } from 'express';
+import { AuthService } from './auth.service';
+import { RegisterDto } from './dto/register.dto';
+import { UserResponseDto } from './dto/user-response.dto';
 import { LoginDto } from './dto/login.dto';
-import type { Response } from 'express';
-import { ConfigService } from '@nestjs/config';
 import { LoginResponseDto } from './dto/login-response.dto';
+import { IssuedRefresh } from './tokens.service';
 
 /** Cookie carrying the refresh token. Path-scoped to /auth so it rides only on refresh/logout. */
 const REFRESH_COOKIE = 'refresh_token';
@@ -51,10 +54,10 @@ export class AuthController {
   // Nest already maps POST to 201, but stating it makes the created-resource contract explicit
   // at the route and keeps it stable if the default ever changes.
   @HttpCode(HttpStatus.CREATED)
-  @ApiOperation({ summary: 'Register a new user ' })
+  @ApiOperation({ summary: 'Register a new user' })
   @ApiCreatedResponse({ type: UserResponseDto })
   @ApiConflictResponse({
-    description: 'Email already registered (RFC 7807 problem + json).',
+    description: 'Email already registered (RFC 7807 problem+json).',
   })
   register(@Body() dto: RegisterDto): Promise<UserResponseDto> {
     return this.authService.register(dto);
@@ -69,16 +72,56 @@ export class AuthController {
   })
   async login(
     @Body() dto: LoginDto,
-    // passthrough: we set a cookie on the response but still return the DTO through Nest's normal
-    // serialization (and keep the global exception filter in play).
+    // passthrough: set the refresh cookie on the response while still returning the DTO through
+    // Nest's normal serialization (and keeping the global exception filter in play).
     @Res({ passthrough: true }) res: Response,
-  ) {
+  ): Promise<LoginResponseDto> {
     const { accessToken, refresh } = await this.authService.login(dto);
+    this.setRefreshCookie(res, refresh);
+    return { accessToken };
+  }
 
-    // The refresh token lives ONLY in this HttpOnly cookie: script (hence XSS) cannot read it. It is
-    // path-scoped to /auth so it never rides along on ordinary API calls; `secure` makes it
-    // HTTPS-only outside dev; SameSite=lax blunts CSRF.
+  @Post('refresh')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({
+    summary: 'Rotate the refresh token and issue a new access token',
+  })
+  @ApiOkResponse({ type: LoginResponseDto })
+  @ApiUnauthorizedResponse({
+    description: 'Missing, expired, invalid, or replayed refresh token.',
+  })
+  async refresh(
+    @Req() req: Request,
+    @Res({ passthrough: true }) res: Response,
+  ): Promise<LoginResponseDto> {
+    // The refresh token is never in the body — it comes from the HttpOnly cookie (via cookie-parser).
+    const rawToken = req.cookies?.[REFRESH_COOKIE] as string | undefined;
+    const { accessToken, refresh } = await this.authService.refresh(rawToken);
+    this.setRefreshCookie(res, refresh);
+    return { accessToken };
+  }
 
+  @Post('logout')
+  @HttpCode(HttpStatus.NO_CONTENT)
+  @ApiOperation({
+    summary: 'Revoke the refresh-token family and clear the cookie',
+  })
+  @ApiNoContentResponse({ description: 'Logged out (idempotent).' })
+  async logout(
+    @Req() req: Request,
+    @Res({ passthrough: true }) res: Response,
+  ): Promise<void> {
+    const rawToken = req.cookies?.[REFRESH_COOKIE] as string | undefined;
+    await this.authService.logout(rawToken);
+    res.clearCookie(REFRESH_COOKIE, { path: '/auth' });
+  }
+
+  /**
+   * Sets the refresh token as an HttpOnly, path-scoped cookie: script (hence XSS) cannot read it,
+   * `secure` makes it HTTPS-only outside dev, and SameSite=lax blunts CSRF. Shared by login and
+   * refresh so the attributes are defined once. (ADR-0011)
+   */
+  private setRefreshCookie(res: Response, refresh: IssuedRefresh): void {
     res.cookie(REFRESH_COOKIE, refresh.token, {
       httpOnly: true,
       secure: this.config.getOrThrow<string>('NODE_ENV') === 'production',
@@ -86,7 +129,5 @@ export class AuthController {
       path: '/auth',
       expires: refresh.expiresAt,
     });
-
-    return { accessToken };
   }
 }

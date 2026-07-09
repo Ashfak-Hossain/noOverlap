@@ -1,7 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { JwtService } from '@nestjs/jwt';
-import { Role } from '@no-overlap/db';
+import { Prisma, Role } from '@no-overlap/db';
 import ms from 'ms';
 import { createHash, randomBytes, randomUUID } from 'node:crypto';
 import { PrismaService } from 'src/prisma/prisma.service';
@@ -36,17 +36,18 @@ export class TokenService {
    * Mints an opaque refresh token, stores only its hash, and returns the raw token for the cookie.
    *
    * A new `familyId` begins a rotation lineage (login); pass an existing one to continue a lineage
-   * during rotation. The token is 256 bits of randomness, so a plain SHA-256 is the correct
-   * hash — Argon2's slowness defends low-entropy passwords, which this is not.
+   * during rotation. Accepts an optional transaction client so a rotation can revoke the old token
+   * and insert its successor atomically.
    */
   async issueRefreshToken(
     userId: string,
     familyId: string = randomUUID(),
+    client: Prisma.TransactionClient = this.prisma,
   ): Promise<IssuedRefresh> {
     const token = randomBytes(32).toString('base64url');
     const expiresAt = new Date(Date.now() + this.refreshTtMs());
 
-    await this.prisma.refreshToken.create({
+    await client.refreshToken.create({
       data: { userId, familyId, tokenHash: this.hashToken(token), expiresAt },
     });
 

@@ -66,6 +66,15 @@ export class AuthService {
     }
   }
 
+  /**
+   * Verifies credentials, then issues an access token plus a new refresh-token lineage.
+   *
+   * Runs an Argon2 verify in every path — against {@link dummyHash} when the email is unknown — and
+   * returns the same `INVALID_CREDENTIALS` for a missing user and a wrong password, so neither the
+   * error nor the response timing reveals whether an email is registered.
+   *
+   * @throws AppException `INVALID_CREDENTIALS` (401) on any authentication failure.
+   */
   async login(
     dto: LoginDto,
   ): Promise<{ accessToken: string; refresh: IssuedRefresh }> {
@@ -91,5 +100,108 @@ export class AuthService {
     const accessToken = await this.tokens.signAccessToken(user);
     const refresh = await this.tokens.issueRefreshToken(user.id);
     return { accessToken, refresh };
+  }
+
+  /**
+   * Rotates a refresh token: revokes the presented one and issues a successor in the same family,
+   * plus a fresh access token.
+   *
+   * Reuse detection is the point: a token presented *after* it was already revoked is a replay — the
+   * fingerprint of theft, since the legitimate client always holds the newest token. In that case the
+   * entire family is revoked, forcing re-authentication. This detection is only possible because
+   * refresh tokens are persisted (ADR-0011); a stateless token could not be revoked.
+   *
+   * @throws AppException `UNAUTHENTICATED` (401) when the token is missing, unknown, expired, or replayed.
+   */
+  async refresh(
+    rawToken: string | undefined,
+  ): Promise<{ accessToken: string; refresh: IssuedRefresh }> {
+    if (!rawToken) throw new AppException('UNAUTHENTICATED');
+
+    const presented = await this.prisma.refreshToken.findUnique({
+      where: {
+        tokenHash: this.tokens.hashToken(rawToken),
+      },
+    });
+    if (!presented) {
+      throw new AppException('UNAUTHENTICATED');
+    }
+
+    // Replay of an already-rotated token: revoke every still-live token in the family.
+    if (presented.revokedAt) {
+      await this.prisma.refreshToken.updateMany({
+        where: {
+          familyId: presented.familyId,
+          revokedAt: null,
+        },
+        data: {
+          revokedAt: new Date(),
+        },
+      });
+      throw new AppException('UNAUTHENTICATED');
+    }
+
+    if (presented.expiresAt <= new Date()) {
+      throw new AppException('UNAUTHENTICATED');
+    }
+
+    // Role is read fresh (it may have changed since issue); also covers a since-deleted user.
+    const user = await this.prisma.user.findUnique({
+      where: {
+        id: presented.userId,
+      },
+      select: {
+        id: true,
+        role: true,
+      },
+    });
+    if (!user) {
+      throw new AppException('UNAUTHENTICATED');
+    }
+
+    // Rotate atomically — a crash can never leave two live tokens (or none) for one lineage.
+    const refresh = await this.prisma.$transaction(async (tx) => {
+      await tx.refreshToken.update({
+        where: {
+          id: presented.id,
+        },
+        data: {
+          revokedAt: new Date(),
+        },
+      });
+      return this.tokens.issueRefreshToken(user.id, presented.familyId, tx);
+    });
+
+    const accessToken = await this.tokens.signAccessToken(user);
+    return { accessToken, refresh };
+  }
+
+  /**
+   * Revokes the presented token's entire family, ending that login session (all rotated descendants).
+   * Idempotent: an absent or unknown token is a no-op.
+   */
+  async logout(rawToken: string | undefined): Promise<void> {
+    if (!rawToken) {
+      return;
+    }
+
+    const presented = await this.prisma.refreshToken.findUnique({
+      where: {
+        tokenHash: this.tokens.hashToken(rawToken),
+      },
+    });
+    if (!presented) {
+      return;
+    }
+
+    await this.prisma.refreshToken.updateMany({
+      where: {
+        familyId: presented.familyId,
+        revokedAt: null,
+      },
+      data: {
+        revokedAt: new Date(),
+      },
+    });
   }
 }
