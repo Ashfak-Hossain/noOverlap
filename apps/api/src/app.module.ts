@@ -1,11 +1,12 @@
+import { IdentityModule } from 'src/identity/identity.module';
 import { Module } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
-import { AppController } from './app.controller';
-import { AppService } from './app.service';
-import { HealthModule } from './health/health.module';
-import { validateEnv } from './config/env.schema';
-import { PrismaModule } from './prisma/prisma.module';
-import { CommonModule } from './common/common.module';
+import { AppController } from 'src/app.controller';
+import { AppService } from 'src/app.service';
+import { HealthModule } from 'src/health/health.module';
+import { validateEnv } from 'src/config/env.schema';
+import { PrismaModule } from 'src/prisma/prisma.module';
+import { CommonModule } from 'src/common/common.module';
 
 @Module({
   imports: [
@@ -15,6 +16,7 @@ import { CommonModule } from './common/common.module';
     }),
     CommonModule,
     PrismaModule,
+    IdentityModule,
     HealthModule,
   ],
   controllers: [AppController],
