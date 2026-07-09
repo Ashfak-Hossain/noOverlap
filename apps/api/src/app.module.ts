@@ -5,6 +5,7 @@ import { AppService } from './app.service';
 import { HealthModule } from './health/health.module';
 import { validateEnv } from './config/env.schema';
 import { PrismaModule } from './prisma/prisma.module';
+import { CommonModule } from './common/common.module';
 
 @Module({
   imports: [
@@ -12,6 +13,7 @@ import { PrismaModule } from './prisma/prisma.module';
       isGlobal: true,
       validate: validateEnv,
     }),
+    CommonModule,
     PrismaModule,
     HealthModule,
   ],
