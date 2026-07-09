@@ -208,6 +208,33 @@
             },
             "description": "Protected route. Inherits Authorization: Bearer {{accessToken}} from the collection (set by Login). Returns 401 without a valid access token."
           }
+        },
+        {
+          "name": "Host-only (RBAC demo)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "// 200 when the logged-in user is a HOST, 403 when a GUEST — both prove RBAC.",
+                  "pm.test('200 (host) or 403 (guest)', () =>",
+                  "  pm.expect(pm.response.code).to.be.oneOf([200, 403]));",
+                  "console.log('host-only ->', pm.response.code === 200 ? 'allowed (HOST)' : 'forbidden (GUEST)');"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/auth/host-only",
+              "host": ["{{baseUrl}}"],
+              "path": ["auth", "host-only"]
+            },
+            "description": "Temporary RBAC proof. To see 200: set the `role` variable to HOST, Register a new email, Login, then call this. To see 403: do the same with role GUEST. Superseded by real host-only Listings routes in 1.5."
+          }
         }
       ]
     },
