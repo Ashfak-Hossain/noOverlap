@@ -16,6 +16,7 @@ import {
   ApiOperation,
   ApiTags,
   ApiUnauthorizedResponse,
+  ApiBearerAuth,
 } from '@nestjs/swagger';
 import type { Request, Response } from 'express';
 import { AuthService } from './auth.service';
@@ -24,6 +25,12 @@ import { UserResponseDto } from './dto/user-response.dto';
 import { LoginDto } from './dto/login.dto';
 import { LoginResponseDto } from './dto/login-response.dto';
 import { IssuedRefresh } from './tokens.service';
+import { JwtAuthGuard } from './guards/jwt-auth.guard';
+import { CurrentUser } from './decorators/current-user.decorator';
+import type { AuthUser } from './types/jwt-payload';
+import { Get, UseGuards } from '@nestjs/common';
+import { MeResponseDto } from './dto/me-response.dto';
+import { Throttle } from '@nestjs/throttler';
 
 /** Cookie carrying the refresh token. Path-scoped to /auth so it rides only on refresh/logout. */
 const REFRESH_COOKIE = 'refresh_token';
@@ -51,6 +58,7 @@ export class AuthController {
    * `EMAIL_ALREADY_EXISTS` and reaches the client as the 409 documented below.
    */
   @Post('register')
+  @Throttle({ default: { limit: 5, ttl: 60_000 } }) // 5/min per IP — throttle mass account creation
   // Nest already maps POST to 201, but stating it makes the created-resource contract explicit
   // at the route and keeps it stable if the default ever changes.
   @HttpCode(HttpStatus.CREATED)
@@ -64,6 +72,7 @@ export class AuthController {
   }
 
   @Post('login')
+  @Throttle({ default: { limit: 5, ttl: 60_000 } }) // 5/min per IP — brute-force / stuffing defense
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'Log in with email and password' })
   @ApiOkResponse({ type: LoginResponseDto })
@@ -129,5 +138,15 @@ export class AuthController {
       path: '/auth',
       expires: refresh.expiresAt,
     });
+  }
+
+  @Get('me')
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Return the authenticated user' })
+  @ApiOkResponse({ type: MeResponseDto })
+  @ApiUnauthorizedResponse({ description: 'Missing or invalid access token.' })
+  me(@CurrentUser() user: AuthUser): MeResponseDto {
+    return user;
   }
 }

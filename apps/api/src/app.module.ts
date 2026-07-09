@@ -7,6 +7,9 @@ import { HealthModule } from 'src/health/health.module';
 import { validateEnv } from 'src/config/env.schema';
 import { PrismaModule } from 'src/prisma/prisma.module';
 import { CommonModule } from 'src/common/common.module';
+import { APP_GUARD } from '@nestjs/core';
+import { ThrottlerModule } from '@nestjs/throttler';
+import { ThrottlerProblemGuard } from './identity/guards/throttler-problem.guard';
 
 @Module({
   imports: [
@@ -14,12 +17,20 @@ import { CommonModule } from 'src/common/common.module';
       isGlobal: true,
       validate: validateEnv,
     }),
+    // Global default: 100 requests / 60s per client IP. Auth routes tighten this via @Throttle.
+    ThrottlerModule.forRoot([{ ttl: 60_000, limit: 100 }]),
     CommonModule,
     PrismaModule,
     IdentityModule,
     HealthModule,
   ],
   controllers: [AppController],
-  providers: [AppService],
+  providers: [
+    AppService,
+    {
+      provide: APP_GUARD,
+      useClass: ThrottlerProblemGuard,
+    },
+  ],
 })
 export class AppModule {}

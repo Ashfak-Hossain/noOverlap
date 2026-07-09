@@ -3,6 +3,7 @@ import type { Response } from 'express';
 import type Redis from 'ioredis';
 import { PrismaService } from '../prisma/prisma.service';
 import { REDIS_CLIENT } from './redis.provider';
+import { SkipThrottle } from '@nestjs/throttler';
 
 type DepStatus = 'up' | 'down';
 
@@ -21,6 +22,7 @@ interface HealthResponse {
  * sets the status via `@Res({ passthrough: true })` rather than throwing, so the global
  * {@link ProblemDetailsFilter} never rewrites the response.
  */
+@SkipThrottle()
 @Controller('health')
 export class HealthController {
   constructor(

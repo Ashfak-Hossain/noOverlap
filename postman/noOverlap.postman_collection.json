@@ -179,6 +179,35 @@
             },
             "description": "Revokes the refresh-token family and clears the cookie. Idempotent (no cookie -> still 204)."
           }
+        },
+        {
+          "name": "Me",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status is 200', () => pm.response.to.have.status(200));",
+                  "const body = pm.response.json();",
+                  "pm.test('returns the caller identity', () => {",
+                  "  pm.expect(body.userId).to.be.a('string');",
+                  "  pm.expect(body.role).to.be.a('string');",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/auth/me",
+              "host": ["{{baseUrl}}"],
+              "path": ["auth", "me"]
+            },
+            "description": "Protected route. Inherits Authorization: Bearer {{accessToken}} from the collection (set by Login). Returns 401 without a valid access token."
+          }
         }
       ]
     },

@@ -21,6 +21,7 @@ export const ERROR_CATALOG = {
     status: 409,
     title: 'Reservation slot no longer available',
   },
+  RATE_LIMITED: { status: 429, title: 'Too many requests' },
   INTERNAL: { status: 500, title: 'Internal server error' },
   INVALID_CREDENTIALS: { status: 401, title: 'Invalid credentials' },
 } as const;

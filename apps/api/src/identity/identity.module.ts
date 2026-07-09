@@ -4,6 +4,8 @@ import { ConfigService } from '@nestjs/config';
 import { AuthController } from './auth.controller';
 import { AuthService } from './auth.service';
 import { TokenService } from './tokens.service';
+import { PassportModule } from '@nestjs/passport';
+import { JwtStrategy } from './strategies/jwt.strategy';
 
 /**
  * Identity — users, authentication, and (from 1.4) role-based access.
@@ -36,8 +38,9 @@ import { TokenService } from './tokens.service';
         verifyOptions: { algorithms: ['RS256'] },
       }),
     }),
+    PassportModule,
   ],
   controllers: [AuthController],
-  providers: [AuthService, TokenService],
+  providers: [AuthService, TokenService, JwtStrategy],
 })
 export class IdentityModule {}
