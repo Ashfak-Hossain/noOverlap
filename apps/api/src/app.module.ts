@@ -1,3 +1,4 @@
+import { ListingsModule } from './listings/listings.module';
 import { IdentityModule } from 'src/identity/identity.module';
 import { Module } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
@@ -22,6 +23,7 @@ import { ThrottlerProblemGuard } from './identity/guards/throttler-problem.guard
     CommonModule,
     PrismaModule,
     IdentityModule,
+    ListingsModule,
     HealthModule,
   ],
   controllers: [AppController],

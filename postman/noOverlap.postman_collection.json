@@ -13,7 +13,8 @@
     { "key": "email", "value": "guest@example.com" },
     { "key": "password", "value": "correct-horse-battery-staple" },
     { "key": "role", "value": "GUEST" },
-    { "key": "accessToken", "value": "" }
+    { "key": "accessToken", "value": "" },
+    { "key": "listingId", "value": "" }
   ],
   "item": [
     {
@@ -253,6 +254,92 @@
               "path": ["health"]
             },
             "description": "Liveness/readiness: checks Postgres + Redis. 200 when healthy, 503 when a dependency is down."
+          }
+        }
+      ]
+    },
+    {
+      "name": "Listings",
+      "description": "Host-only, owner-scoped listing management (1.5). Log in as a HOST first: set the `role` variable to HOST, Register a fresh email, then Login.",
+      "item": [
+        {
+          "name": "Create listing",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status is 201', () => pm.response.to.have.status(201));",
+                  "const body = pm.response.json();",
+                  "pm.expect(body.id, 'listing id').to.be.a('string');",
+                  "pm.collectionVariables.set('listingId', body.id);",
+                  "pm.test('owned by the caller (hostId set)', () => pm.expect(body.hostId).to.be.a('string'));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"title\": \"Sunny loft near Alexanderplatz\",\n  \"city\": \"Berlin\",\n  \"nightlyPriceCents\": 8900,\n  \"maxGuests\": 4\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/listings",
+              "host": ["{{baseUrl}}"],
+              "path": ["listings"]
+            },
+            "description": "Create a listing. Requires a HOST token (inherited bearer). A GUEST token -> 403."
+          }
+        },
+        {
+          "name": "Update listing",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": ["pm.test('status is 200', () => pm.response.to.have.status(200));"]
+              }
+            }
+          ],
+          "request": {
+            "method": "PATCH",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"nightlyPriceCents\": 9500\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/listings/{{listingId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["listings", "{{listingId}}"]
+            },
+            "description": "Update your own listing. Another host's listing -> 403; unknown id -> 404."
+          }
+        },
+        {
+          "name": "Delete listing",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": ["pm.test('status is 204', () => pm.response.to.have.status(204));"]
+              }
+            }
+          ],
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/listings/{{listingId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["listings", "{{listingId}}"]
+            },
+            "description": "Delete your own listing. 204 on success."
           }
         }
       ]
