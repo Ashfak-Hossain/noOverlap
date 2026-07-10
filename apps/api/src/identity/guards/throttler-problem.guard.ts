@@ -9,7 +9,7 @@ import { AppException } from 'src/common/errors/app.exception';
  *
  * @remarks Storage is the library default (in-process). A multi-instance deploy needs a shared store
  * (Redis, which we already run) so limits hold across replicas, plus a trusted-proxy config so the
- * real client IP is used — both Phase 6.
+ * real client IP is used — both deferred to production hardening.
  */
 @Injectable()
 export class ThrottlerProblemGuard extends ThrottlerGuard {

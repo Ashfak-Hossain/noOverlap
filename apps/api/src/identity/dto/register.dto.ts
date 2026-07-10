@@ -34,7 +34,7 @@ export class RegisterDto {
   password!: string;
 
   // Self-service model: a user chooses guest or host at sign-up (design.md §5). Any elevation
-  // controls, if later needed, belong in RBAC (1.4), not in the registration contract.
+  // controls, if later needed, belong in the RBAC layer, not in the registration contract.
   @ApiProperty({ enum: Role, example: Role.GUEST })
   @IsEnum(Role)
   role!: Role;
