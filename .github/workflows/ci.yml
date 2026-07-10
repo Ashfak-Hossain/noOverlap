@@ -28,3 +28,17 @@ jobs:
 
       - name: Lint, typecheck, test
         run: pnpm turbo run lint typecheck test
+
+      # Integration tests spin an ephemeral Postgres via Testcontainers (Docker is available on the
+      # runner) and boot the app, so they need the env the schema validates. The RSA keypair is
+      # generated fresh per run — throwaway, used only to sign/verify within this job.
+      - name: Integration tests (Testcontainers)
+        env:
+          REDIS_HOST: localhost
+          REDIS_PORT: 6379
+        run: |
+          openssl genpkey -algorithm RSA -pkeyopt rsa_keygen_bits:2048 -out /tmp/jwt.key
+          openssl rsa -in /tmp/jwt.key -pubout -out /tmp/jwt.key.pub
+          export JWT_PRIVATE_KEY_B64=$(base64 -w0 /tmp/jwt.key)
+          export JWT_PUBLIC_KEY_B64=$(base64 -w0 /tmp/jwt.key.pub)
+          pnpm --filter api test:int

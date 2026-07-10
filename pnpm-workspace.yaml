@@ -4,5 +4,8 @@ packages:
 allowBuilds:
   '@prisma/engines': true
   '@scarf/scarf': false
+  cpu-features: false
   prisma: true
+  protobufjs: false
+  ssh2: false
   unrs-resolver: true
