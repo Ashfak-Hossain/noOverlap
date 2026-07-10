@@ -14,7 +14,8 @@
     { "key": "password", "value": "correct-horse-battery-staple" },
     { "key": "role", "value": "GUEST" },
     { "key": "accessToken", "value": "" },
-    { "key": "listingId", "value": "" }
+    { "key": "listingId", "value": "" },
+    { "key": "availabilityId", "value": "" }
   ],
   "item": [
     {
@@ -209,33 +210,6 @@
             },
             "description": "Protected route. Inherits Authorization: Bearer {{accessToken}} from the collection (set by Login). Returns 401 without a valid access token."
           }
-        },
-        {
-          "name": "Host-only (RBAC demo)",
-          "event": [
-            {
-              "listen": "test",
-              "script": {
-                "type": "text/javascript",
-                "exec": [
-                  "// 200 when the logged-in user is a HOST, 403 when a GUEST — both prove RBAC.",
-                  "pm.test('200 (host) or 403 (guest)', () =>",
-                  "  pm.expect(pm.response.code).to.be.oneOf([200, 403]));",
-                  "console.log('host-only ->', pm.response.code === 200 ? 'allowed (HOST)' : 'forbidden (GUEST)');"
-                ]
-              }
-            }
-          ],
-          "request": {
-            "method": "GET",
-            "header": [],
-            "url": {
-              "raw": "{{baseUrl}}/auth/host-only",
-              "host": ["{{baseUrl}}"],
-              "path": ["auth", "host-only"]
-            },
-            "description": "Temporary RBAC proof. To see 200: set the `role` variable to HOST, Register a new email, Login, then call this. To see 403: do the same with role GUEST. Superseded by real host-only Listings routes in 1.5."
-          }
         }
       ]
     },
@@ -340,6 +314,151 @@
               "path": ["listings", "{{listingId}}"]
             },
             "description": "Delete your own listing. 204 on success."
+          }
+        },
+        {
+          "name": "List active listings",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status is 200', () => pm.response.to.have.status(200));",
+                  "pm.test('array of listings', () => pm.expect(pm.response.json()).to.be.an('array'));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "auth": { "type": "noauth" },
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/listings",
+              "host": ["{{baseUrl}}"],
+              "path": ["listings"]
+            },
+            "description": "Public browse of active listings, newest first. Append ?city=Berlin to filter by city."
+          }
+        },
+        {
+          "name": "List my listings",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": ["pm.test('status is 200', () => pm.response.to.have.status(200));"]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/listings/mine",
+              "host": ["{{baseUrl}}"],
+              "path": ["listings", "mine"]
+            },
+            "description": "The host's own listings, active and inactive. Requires a HOST token (inherited bearer)."
+          }
+        },
+        {
+          "name": "Get listing by id",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": ["pm.test('status is 200', () => pm.response.to.have.status(200));"]
+              }
+            }
+          ],
+          "request": {
+            "auth": { "type": "noauth" },
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/listings/{{listingId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["listings", "{{listingId}}"]
+            },
+            "description": "Public read of a single listing. 404 if the id is unknown."
+          }
+        },
+        {
+          "name": "Add availability",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status is 201', () => pm.response.to.have.status(201));",
+                  "pm.collectionVariables.set('availabilityId', pm.response.json().id);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"startsAt\": \"2026-08-01T14:00:00.000Z\",\n  \"endsAt\": \"2026-08-10T11:00:00.000Z\",\n  \"kind\": \"OPEN\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/listings/{{listingId}}/availability",
+              "host": ["{{baseUrl}}"],
+              "path": ["listings", "{{listingId}}", "availability"]
+            },
+            "description": "Add an availability window to your own listing. An inverted range (startsAt >= endsAt) -> 400."
+          }
+        },
+        {
+          "name": "List availability",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": ["pm.test('status is 200', () => pm.response.to.have.status(200));"]
+              }
+            }
+          ],
+          "request": {
+            "auth": { "type": "noauth" },
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/listings/{{listingId}}/availability",
+              "host": ["{{baseUrl}}"],
+              "path": ["listings", "{{listingId}}", "availability"]
+            },
+            "description": "Public: availability windows for a listing, earliest first. Unknown listing -> 404."
+          }
+        },
+        {
+          "name": "Delete availability",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": ["pm.test('status is 204', () => pm.response.to.have.status(204));"]
+              }
+            }
+          ],
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/listings/{{listingId}}/availability/{{availabilityId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["listings", "{{listingId}}", "availability", "{{availabilityId}}"]
+            },
+            "description": "Remove an availability window from your own listing. 204 on success."
           }
         }
       ]
