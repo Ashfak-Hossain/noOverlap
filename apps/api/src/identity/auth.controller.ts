@@ -1,4 +1,3 @@
-import { RolesGuard } from './guards/roles.guard';
 import {
   Body,
   Controller,
@@ -20,7 +19,6 @@ import {
   ApiTags,
   ApiUnauthorizedResponse,
   ApiBearerAuth,
-  ApiForbiddenResponse,
 } from '@nestjs/swagger';
 import type { Request, Response } from 'express';
 import { AuthService } from './auth.service';
@@ -34,8 +32,6 @@ import { CurrentUser } from './decorators/current-user.decorator';
 import type { AuthUser } from './types/jwt-payload';
 import { MeResponseDto } from './dto/me-response.dto';
 import { Throttle } from '@nestjs/throttler';
-import { Role } from '@no-overlap/db';
-import { Roles } from './decorators/roles.decorator';
 
 /** Cookie carrying the refresh token. Path-scoped to /auth so it rides only on refresh/logout. */
 const REFRESH_COOKIE = 'refresh_token';
@@ -157,17 +153,5 @@ export class AuthController {
   @ApiUnauthorizedResponse({ description: 'Missing or invalid access token.' })
   me(@CurrentUser() user: AuthUser): MeResponseDto {
     return user;
-  }
-
-  @Get('host-only')
-  @UseGuards(JwtAuthGuard, RolesGuard) // authenticate first, then authorize by role
-  @Roles(Role.HOST)
-  @ApiBearerAuth()
-  @ApiOperation({ summary: '[demo] Host-only route (RBAC proof)' })
-  @ApiOkResponse({ description: 'Caller has the HOST role.' })
-  @ApiUnauthorizedResponse({ description: 'Missing or invalid access token.' })
-  @ApiForbiddenResponse({ description: 'Authenticated but not a HOST.' })
-  hostOnly(@CurrentUser() user: AuthUser): { ok: true; userId: string } {
-    return { ok: true, userId: user.userId };
   }
 }
