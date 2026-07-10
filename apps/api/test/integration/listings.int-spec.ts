@@ -3,7 +3,12 @@ import request from 'supertest';
 import { Role } from '@no-overlap/db';
 import { createTestApp, registerAndLogin } from './helpers';
 
-const LISTING = { title: 'Loft', city: 'Berlin', nightlyPriceCents: 8900, maxGuests: 4 };
+const LISTING = {
+  title: 'Loft',
+  city: 'Berlin',
+  nightlyPriceCents: 8900,
+  maxGuests: 4,
+};
 
 /**
  * The Phase 1 gate behaviours for Listings: a host can manage listings, RBAC blocks a guest, and
@@ -40,7 +45,10 @@ describe('Listings (e2e)', () => {
   });
 
   it('requires authentication to create a listing (401)', async () => {
-    await request(app.getHttpServer()).post('/listings').send(LISTING).expect(401);
+    await request(app.getHttpServer())
+      .post('/listings')
+      .send(LISTING)
+      .expect(401);
   });
 
   it("forbids a host from updating another host's listing (403)", async () => {
