@@ -1,8 +1,15 @@
 # --- Local-only project documentation & AI tooling ---
 CLAUDE.md
 .claude/
-docs/
 PROGRESS.md
+
+# Everything under docs/ is local-only EXCEPT the published documentation tree.
+# Default-private, publish-by-whitelist: nothing internal can leak by accident.
+docs/*
+!docs/README.md
+!docs/glossary.md
+!docs/architecture/
+!docs/concepts/
 
 # --- Environment & secrets ---
 .env
