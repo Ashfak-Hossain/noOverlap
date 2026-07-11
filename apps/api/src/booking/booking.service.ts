@@ -10,7 +10,7 @@ import { Prisma, ReservationStatus } from '@no-overlap/db';
 
 const MS_PER_DAY = 86_400_000; // one day (24 × 60 × 60 × 1000)
 
-// The only columns allowed out of the API. An allow-list (not a deny-list / `omit`) so a
+// The only columns allowed out of the API. An allow-list (not a deny-list / `omit`) so a new
 // internal column can't leak by default. `version` is deliberately absent: it is internal
 // bookkeeping, not part of the API contract.
 const RESERVATION_SELECT = {
@@ -63,7 +63,7 @@ export class BookingService {
     private readonly prisma: PrismaService,
     config: ConfigService,
   ) {
-    // Parse the HOLD_TTL ("15m") once at startup;
+    // Parse the human-friendly HOLD_TTL (e.g. "15m") once at startup; getOrThrow fails fast if unset.
     this.holdTtlMs = ms(
       config.getOrThrow<string>('HOLD_TTL') as ms.StringValue,
     );
@@ -71,7 +71,7 @@ export class BookingService {
 
   /**
    * Places a HELD reservation. Concurrency-safe by construction: the insert relies on the
-   * `no_overlapping_active_reservations` exclusion constraint (ADR-0003) to reject overlaps at the
+   * `no_overlapping_active_reservations` exclusion constraint to reject overlaps at the
    * database level — exactly one of N racing callers commits; the rest surface as SLOT_TAKEN. There
    * is deliberately NO pre-SELECT to "check availability": that would reopen the TOCTOU race.
    */

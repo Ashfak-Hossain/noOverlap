@@ -109,7 +109,7 @@ export class AuthService {
    * Reuse detection is the point: a token presented *after* it was already revoked is a replay — the
    * fingerprint of theft, since the legitimate client always holds the newest token. In that case the
    * entire family is revoked, forcing re-authentication. This detection is only possible because
-   * refresh tokens are persisted (ADR-0011); a stateless token could not be revoked.
+   * refresh tokens are persisted; a stateless token could not be revoked.
    *
    * @throws AppException `UNAUTHENTICATED` (401) when the token is missing, unknown, expired, or replayed.
    */

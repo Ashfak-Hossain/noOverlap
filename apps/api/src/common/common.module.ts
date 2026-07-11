@@ -4,7 +4,7 @@ import { ProblemDetailsFilter } from './filters/problem-details.filter';
 import { buildValidationException } from './validation';
 
 /**
- * Shared/Core cross-cutting concerns, wired once and applied to every request (ADR-0009).
+ * Shared/Core cross-cutting concerns, wired once and applied to every request.
  *
  * Registered `@Global()` and imported once in `AppModule`. Using the `APP_FILTER` / `APP_PIPE`
  * provider tokens (rather than `app.useGlobalFilters()` in main.ts) registers them through the DI

@@ -2,10 +2,10 @@ import { PrismaClient, ReservationStatus, Role } from '@no-overlap/db';
 import { PrismaPg } from '@prisma/adapter-pg';
 
 /**
- * The headline Phase 1 proof: overlapping active reservations on one listing are rejected by the
- * database itself — the GiST exclusion constraint (ADR-0003), not application code. It runs directly
- * against Prisma because there is no reservation endpoint yet; the invariant is tested at the only
- * layer that enforces it. Phase 2 escalates this to a concurrent 10k-request storm.
+ * The headline proof: overlapping active reservations on one listing are rejected by the database
+ * itself — the GiST exclusion constraint, not application code. It runs directly against Prisma
+ * because there is no reservation endpoint yet; the invariant is tested at the only layer that
+ * enforces it. A later suite escalates this to a concurrent 10k-request storm.
  */
 describe('reservations: no-overlap exclusion constraint', () => {
   let prisma: PrismaClient;

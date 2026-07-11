@@ -11,8 +11,8 @@ const LISTING = {
 };
 
 /**
- * The Phase 1 gate behaviours for Listings: a host can manage listings, RBAC blocks a guest, and
- * ownership blocks one host from touching another's — all over HTTP against a real database.
+ * Core behaviours for Listings: a host can manage listings, RBAC blocks a guest, and ownership
+ * blocks one host from touching another's — all over HTTP against a real database.
  */
 describe('Listings (e2e)', () => {
   let app: INestApplication;

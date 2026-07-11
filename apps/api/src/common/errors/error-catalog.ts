@@ -1,6 +1,6 @@
 /**
- * Single source of truth mapping every domain error code to its HTTP status and human title
- * (ADR-0009). Because status and title live here, services throw a code and controllers never build
+ * Single source of truth mapping every domain error code to its HTTP status and human title.
+ * Because status and title live here, services throw a code and controllers never build
  * ad-hoc error JSON — {@link ProblemDetailsFilter} renders the response.
  */
 

@@ -4,13 +4,11 @@ import { BookingService } from './booking.service';
 import { ReservationExpiryService } from './reservation-expiry.service';
 
 /**
- * Booking bounded context — guests place holds on date ranges and view their own reservations.
+ * Booking bounded context — guests place, confirm, and cancel reservations and view their own; a
+ * background sweep ({@link ReservationExpiryService}) reclaims abandoned holds.
  *
  * Depends on Identity only through the access token (`@Auth`/`@CurrentUser`) and on Listings only by
- * id, never by reaching into their tables — the module-boundary rule from design.md §3.
- *
- * @remarks The controller and service are currently registered in `AppModule`; this module is their
- * home as the context grows its own providers.
+ * id, never by reaching into their tables.
  */
 @Module({
   controllers: [BookingController],

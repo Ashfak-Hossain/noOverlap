@@ -1,6 +1,6 @@
 /**
  * The `application/problem+json` response body (RFC 7807) — the single error shape the whole API
- * returns, so the frontend parses every failure the same way (ADR-0009). The first five members are
+ * returns, so the frontend parses every failure the same way. The first five members are
  * standard 7807; `errors` is a 7807 "extension member" we add to carry per-field validation detail.
  */
 export interface ProblemDetails {

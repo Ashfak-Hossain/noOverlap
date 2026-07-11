@@ -129,7 +129,7 @@ export class AuthController {
   /**
    * Sets the refresh token as an HttpOnly, path-scoped cookie: script (hence XSS) cannot read it,
    * `secure` makes it HTTPS-only outside dev, and SameSite=lax blunts CSRF. Shared by login and
-   * refresh so the attributes are defined once. (ADR-0011)
+   * refresh so the attributes are defined once.
    */
   private setRefreshCookie(res: Response, refresh: IssuedRefresh): void {
     res.cookie(REFRESH_COOKIE, refresh.token, {

@@ -3,7 +3,7 @@ const PG_EXCLUSION_VIOLATION = '23P01';
 
 /**
  * Reports whether a failed write was rejected by an exclusion constraint (SQLSTATE `23P01`). For this
- * schema that always means the `no_overlapping_active_reservations` constraint (ADR-0003), since it is
+ * schema that always means the `no_overlapping_active_reservations` constraint, since it is
  * the only exclusion constraint — so a match unambiguously means the slot was just taken. The caller
  * translates a match into `RESERVATION_SLOT_TAKEN`; anything else is a genuine failure and is rethrown.
  * If a second exclusion constraint is ever added, disambiguate by the constraint name.

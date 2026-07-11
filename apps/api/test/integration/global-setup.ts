@@ -6,7 +6,7 @@ import { execSync } from 'node:child_process';
  * migrations to it, and export its URL via the environment.
  *
  * `prisma migrate deploy` runs the actual migration history — including the one that enables
- * `btree_gist` and adds the reservation exclusion constraint (ADR-0003) — so the container ends up
+ * `btree_gist` and adds the reservation exclusion constraint — so the container ends up
  * with a byte-for-byte production schema. The passed `DATABASE_URL` wins over the db package's `.env`
  * (dotenv does not override an already-set variable), so migrations target the container.
  */

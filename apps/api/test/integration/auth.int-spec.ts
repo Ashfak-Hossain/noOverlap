@@ -5,7 +5,7 @@ import { createTestApp, registerAndLogin } from './helpers';
 
 const PASSWORD = 'correct-horse-battery-staple';
 
-/** Identity behaviours the Phase 1 gate depends on, driven over HTTP against a real database. */
+/** Core identity behaviours, driven over HTTP against a real database. */
 describe('Identity (e2e)', () => {
   let app: INestApplication;
 

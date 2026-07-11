@@ -10,8 +10,7 @@ import { PrismaPg } from '@prisma/adapter-pg';
  * without re-importing.
  *
  * @remarks Prisma 7 runs without the Rust query engine, so the client talks to Postgres through a
- * driver adapter ({@link PrismaPg}, backed by `pg`) rather than a bare connection string — see the
- * Prisma-7 notes in ADR-0002.
+ * driver adapter ({@link PrismaPg}, backed by `pg`) rather than a bare connection string.
  */
 @Injectable()
 export class PrismaService

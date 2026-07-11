@@ -33,7 +33,7 @@ export class RegisterDto {
   @MaxLength(128)
   password!: string;
 
-  // Self-service model: a user chooses guest or host at sign-up (design.md §5). Any elevation
+  // Self-service model: a user chooses guest or host at sign-up. Any elevation
   // controls, if later needed, belong in the RBAC layer, not in the registration contract.
   @ApiProperty({ enum: Role, example: Role.GUEST })
   @IsEnum(Role)

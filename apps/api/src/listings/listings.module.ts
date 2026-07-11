@@ -6,7 +6,7 @@ import { ListingsService } from './listings.service';
  * Listings bounded context — hosts manage properties.
  *
  * Depends on Identity only through the access token (`@Auth`/`@CurrentUser`), never by reaching into
- * its tables — the module-boundary rule from design.md §3.
+ * its tables — the module-boundary rule.
  */
 @Module({
   controllers: [ListingsController],

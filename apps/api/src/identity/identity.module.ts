@@ -10,7 +10,7 @@ import { JwtStrategy } from './strategies/jwt.strategy';
 /**
  * Identity — users, authentication, and role-based access.
  *
- * `JwtModule` is configured for RS256 from env: the base64-PEM keys (ADR-0011) are decoded here, the
+ * `JwtModule` is configured for RS256 from env: the base64-PEM keys are decoded here, the
  * private key signs and the public key verifies. `ConfigService`/`PrismaService` are injected without
  * imports because their modules are global.
  */

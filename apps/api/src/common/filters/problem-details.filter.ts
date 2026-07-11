@@ -15,7 +15,7 @@ import type { ProblemDetails } from '../problem-details';
 /**
  * The single global exception filter: it catches every error thrown anywhere in the request
  * pipeline and renders one consistent RFC 7807 body, so the frontend only ever handles one error
- * shape (ADR-0009). `@Catch()` with no argument means "catch everything", not a specific type.
+ * shape. `@Catch()` with no argument means "catch everything", not a specific type.
  */
 @Catch()
 export class ProblemDetailsFilter implements ExceptionFilter {

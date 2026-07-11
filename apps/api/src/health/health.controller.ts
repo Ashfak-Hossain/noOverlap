@@ -17,7 +17,7 @@ interface HealthResponse {
  * Liveness/readiness probe: reports whether the API and its critical dependencies (Postgres, Redis)
  * are reachable. Orchestrators and load balancers poll it and route on the HTTP status code.
  *
- * Deliberately kept OUTSIDE the RFC 7807 error envelope (ADR-0009): its `status: 'ok' | 'error'`
+ * Deliberately kept OUTSIDE the RFC 7807 error envelope: its `status: 'ok' | 'error'`
  * field would collide with problem+json's numeric `status`, and a probe has its own contract. It
  * sets the status via `@Res({ passthrough: true })` rather than throwing, so the global
  * {@link ProblemDetailsFilter} never rewrites the response.
