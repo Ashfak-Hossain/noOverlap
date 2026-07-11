@@ -181,11 +181,26 @@ export class BookingService {
     }
     assertTransition(current.status, ReservationStatus.CONFIRMED); // HELD -> CONFIRMED; else 409
 
-    return this.prisma.reservation.update({
-      where: { id },
+    await this.chargeStub(current);
+
+    // Atomic transition: only flip a row that is STILL held. updateMany filters on status inside the
+    // same statement the DB runs, so a hold that expired (or was cancelled) between the read above and
+    // this write cannot be revived — the check and the act are one operation, not two.
+    const { count } = await this.prisma.reservation.updateMany({
+      where: { id, status: ReservationStatus.HELD },
       data: { status: ReservationStatus.CONFIRMED },
-      select: RESERVATION_SELECT,
     });
+
+    if (count === 0) {
+      // We lost the race. Re-read the truth and react to it.
+      const latest = await this.getOwned(guestId, id);
+      if (latest.status === ReservationStatus.CONFIRMED) {
+        return latest; // a concurrent confirm won
+      }
+      assertTransition(latest.status, ReservationStatus.CONFIRMED); // EXPIRED/CANCELLED -> 409
+    }
+
+    return this.getOwned(guestId, id);
   }
 
   /**
@@ -198,8 +213,6 @@ export class BookingService {
       return current; // idempotent no-op
     }
     assertTransition(current.status, ReservationStatus.CANCELLED); // HELD/CONFIRMED -> CANCELLED; else 409
-
-    await this.chargeStub(current);
 
     return this.prisma.reservation.update({
       where: { id },

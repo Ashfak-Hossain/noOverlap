@@ -12,6 +12,7 @@ import { APP_GUARD } from '@nestjs/core';
 import { ThrottlerModule } from '@nestjs/throttler';
 import { ThrottlerProblemGuard } from './identity/guards/throttler-problem.guard';
 import { BookingModule } from './booking/booking.module';
+import { ScheduleModule } from '@nestjs/schedule';
 
 @Module({
   imports: [
@@ -21,6 +22,7 @@ import { BookingModule } from './booking/booking.module';
     }),
     // Global default: 100 requests / 60s per client IP. Auth routes tighten this via @Throttle.
     ThrottlerModule.forRoot([{ ttl: 60_000, limit: 100 }]),
+    ScheduleModule.forRoot(),
     CommonModule,
     PrismaModule,
     IdentityModule,

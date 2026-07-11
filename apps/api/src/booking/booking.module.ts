@@ -1,6 +1,7 @@
 import { Module } from '@nestjs/common';
 import { BookingController } from './booking.controller';
 import { BookingService } from './booking.service';
+import { ReservationExpiryService } from './reservation-expiry.service';
 
 /**
  * Booking bounded context — guests place holds on date ranges and view their own reservations.
@@ -13,6 +14,6 @@ import { BookingService } from './booking.service';
  */
 @Module({
   controllers: [BookingController],
-  providers: [BookingService],
+  providers: [BookingService, ReservationExpiryService],
 })
 export class BookingModule {}
