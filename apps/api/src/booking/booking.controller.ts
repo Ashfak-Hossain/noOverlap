@@ -69,4 +69,26 @@ export class BookingController {
   ): Promise<ReservationResponseDto> {
     return this.booking.getOwned(user.userId, id);
   }
+
+  @Post(':id/confirm')
+  @Auth()
+  @HttpCode(HttpStatus.OK)
+  @ApiOkResponse({ type: ReservationResponseDto })
+  confirm(
+    @CurrentUser() user: AuthUser,
+    @Param('id', ParseUUIDPipe) id: string,
+  ): Promise<ReservationResponseDto> {
+    return this.booking.confirm(user.userId, id);
+  }
+
+  @Post(':id/cancel')
+  @Auth()
+  @HttpCode(HttpStatus.OK)
+  @ApiOkResponse({ type: ReservationResponseDto })
+  cancel(
+    @CurrentUser() user: AuthUser,
+    @Param('id', ParseUUIDPipe) id: string,
+  ): Promise<ReservationResponseDto> {
+    return this.booking.cancel(user.userId, id);
+  }
 }

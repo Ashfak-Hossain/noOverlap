@@ -24,6 +24,10 @@ export const ERROR_CATALOG = {
   RATE_LIMITED: { status: 429, title: 'Too many requests' },
   INTERNAL: { status: 500, title: 'Internal server error' },
   INVALID_CREDENTIALS: { status: 401, title: 'Invalid credentials' },
+  INVALID_STATE_TRANSITION: {
+    status: 409,
+    title: 'Reservation cannot change to that state',
+  },
 } as const;
 
 export type ErrorCode = keyof typeof ERROR_CATALOG;

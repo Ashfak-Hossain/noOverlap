@@ -640,6 +640,84 @@
             },
             "description": "Guest-scoped read of one reservation. Another guest's reservation id -> 404 (existence hidden, not 403)."
           }
+        },
+        {
+          "name": "Confirm hold -> CONFIRMED",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status is 200', () => pm.response.to.have.status(200));",
+                  "pm.test('reservation is CONFIRMED', () =>",
+                  "  pm.expect(pm.response.json().status).to.eql('CONFIRMED'));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/reservations/{{reservationId}}/confirm",
+              "host": ["{{baseUrl}}"],
+              "path": ["reservations", "{{reservationId}}", "confirm"]
+            },
+            "description": "Runs the (stubbed) payment then transitions HELD -> CONFIRMED. Acts on the last hold saved to `reservationId` (Create hold (A))."
+          }
+        },
+        {
+          "name": "Confirm again (idempotent) -> 200",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status is 200', () => pm.response.to.have.status(200));",
+                  "pm.test('still CONFIRMED, no double effect', () =>",
+                  "  pm.expect(pm.response.json().status).to.eql('CONFIRMED'));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/reservations/{{reservationId}}/confirm",
+              "host": ["{{baseUrl}}"],
+              "path": ["reservations", "{{reservationId}}", "confirm"]
+            },
+            "description": "Re-confirming an already-CONFIRMED reservation is a no-op returning the same state (idempotent) — not an error."
+          }
+        },
+        {
+          "name": "Cancel -> CANCELLED (frees the slot)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status is 200', () => pm.response.to.have.status(200));",
+                  "pm.test('reservation is CANCELLED', () =>",
+                  "  pm.expect(pm.response.json().status).to.eql('CANCELLED'));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/reservations/{{reservationId}}/cancel",
+              "host": ["{{baseUrl}}"],
+              "path": ["reservations", "{{reservationId}}", "cancel"]
+            },
+            "description": "Transitions to CANCELLED (compensation). The slot is now free — re-run an overlapping 'Create hold' and it succeeds (201) where it previously returned 409. To see an illegal transition, run 'Confirm again' now: CANCELLED -> CONFIRMED is rejected with 409 INVALID_STATE_TRANSITION."
+          }
         }
       ]
     }

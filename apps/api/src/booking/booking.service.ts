@@ -6,7 +6,7 @@ import { PrismaService } from 'src/prisma/prisma.service';
 import { CreateReservationDto } from './dto/create-reservation.dto';
 import { ReservationResponseDto } from './dto/reservation-response.dto';
 import { isExclusionViolation } from './exclusion-violation';
-import { Prisma } from '@no-overlap/db';
+import { Prisma, ReservationStatus } from '@no-overlap/db';
 
 const MS_PER_DAY = 86_400_000; // one day (24 × 60 × 60 × 1000)
 
@@ -24,6 +24,36 @@ const RESERVATION_SELECT = {
   holdExpiresAt: true,
   createdAt: true,
 } satisfies Prisma.ReservationSelect;
+
+// The reservation lifecycle expressed as data: the ONLY legal moves. Every status change goes through
+// this one map, so "which transitions are allowed" has a single home instead of scattered checks.
+const ALLOWED_TRANSITIONS: Record<ReservationStatus, ReservationStatus[]> = {
+  [ReservationStatus.HELD]: [
+    ReservationStatus.CONFIRMED,
+    ReservationStatus.CANCELLED,
+    ReservationStatus.EXPIRED,
+  ],
+  [ReservationStatus.CONFIRMED]: [
+    ReservationStatus.CANCELLED,
+    ReservationStatus.COMPLETED,
+  ],
+  [ReservationStatus.EXPIRED]: [],
+  [ReservationStatus.CANCELLED]: [],
+  [ReservationStatus.COMPLETED]: [],
+};
+
+/** The single gate for every status change: throws if `from -> to` is not a legal move. */
+function assertTransition(
+  from: ReservationStatus,
+  to: ReservationStatus,
+): void {
+  if (!ALLOWED_TRANSITIONS[from].includes(to)) {
+    throw new AppException(
+      'INVALID_STATE_TRANSITION',
+      `Cannot move a ${from} reservation to ${to}.`,
+    );
+  }
+}
 
 @Injectable()
 export class BookingService {
@@ -138,5 +168,52 @@ export class BookingService {
     });
     if (!r) throw new AppException('NOT_FOUND');
     return r;
+  }
+
+  /**
+   * Confirms a held reservation after (stubbed) payment succeeds. Idempotent: re-confirming an
+   * already-CONFIRMED reservation is a no-op returning the same state.
+   */
+  async confirm(guestId: string, id: string): Promise<ReservationResponseDto> {
+    const current = await this.getOwned(guestId, id);
+    if (current.status === ReservationStatus.CONFIRMED) {
+      return current; // idempotent no-op
+    }
+    assertTransition(current.status, ReservationStatus.CONFIRMED); // HELD -> CONFIRMED; else 409
+
+    return this.prisma.reservation.update({
+      where: { id },
+      data: { status: ReservationStatus.CONFIRMED },
+      select: RESERVATION_SELECT,
+    });
+  }
+
+  /**
+   * Cancels a reservation (the compensation step). The freed slot is immediately re-bookable because
+   * the exclusion constraint ignores CANCELLED rows. Idempotent.
+   */
+  async cancel(guestId: string, id: string): Promise<ReservationResponseDto> {
+    const current = await this.getOwned(guestId, id);
+    if (current.status === ReservationStatus.CANCELLED) {
+      return current; // idempotent no-op
+    }
+    assertTransition(current.status, ReservationStatus.CANCELLED); // HELD/CONFIRMED -> CANCELLED; else 409
+
+    await this.chargeStub(current);
+
+    return this.prisma.reservation.update({
+      where: { id },
+      data: { status: ReservationStatus.CANCELLED },
+      select: RESERVATION_SELECT,
+    });
+  }
+
+  /**
+   * Placeholder for the payment charge.
+   */
+  private async chargeStub(
+    _reservation: ReservationResponseDto,
+  ): Promise<void> {
+    // no-op success for now
   }
 }
