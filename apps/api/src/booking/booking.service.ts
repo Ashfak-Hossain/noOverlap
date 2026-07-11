@@ -6,8 +6,24 @@ import { PrismaService } from 'src/prisma/prisma.service';
 import { CreateReservationDto } from './dto/create-reservation.dto';
 import { ReservationResponseDto } from './dto/reservation-response.dto';
 import { isExclusionViolation } from './exclusion-violation';
+import { Prisma } from '@no-overlap/db';
 
 const MS_PER_DAY = 86_400_000; // one day (24 × 60 × 60 × 1000)
+
+// The only columns allowed out of the API. An allow-list (not a deny-list / `omit`) so a
+// internal column can't leak by default. `version` is deliberately absent: it is internal
+// bookkeeping, not part of the API contract.
+const RESERVATION_SELECT = {
+  id: true,
+  listingId: true,
+  guestId: true,
+  checkIn: true,
+  checkOut: true,
+  status: true,
+  priceTotalCents: true,
+  holdExpiresAt: true,
+  createdAt: true,
+} satisfies Prisma.ReservationSelect;
 
 @Injectable()
 export class BookingService {
@@ -36,8 +52,22 @@ export class BookingService {
     const checkIn = new Date(dto.checkIn);
     const checkOut = new Date(dto.checkOut);
 
-    if (checkOut > checkIn) {
-      throw new AppException('VALIDATION_FAILED');
+    const now = new Date();
+
+    // Reject a backwards or zero-length range: check-out must come strictly after check-in.
+    if (checkOut <= checkIn) {
+      throw new AppException(
+        'VALIDATION_FAILED',
+        'checkOut must be after checkIn.',
+      );
+    }
+
+    // Reject a hold that starts in the past
+    if (checkIn < now) {
+      throw new AppException(
+        'VALIDATION_FAILED',
+        'checkIn must be in the future.',
+      );
     }
 
     const listing = await this.prisma.listing.findUnique({
@@ -68,6 +98,7 @@ export class BookingService {
 
     try {
       return await this.prisma.reservation.create({
+        select: RESERVATION_SELECT,
         data: {
           listingId: dto.listingId,
           guestId,
@@ -89,6 +120,7 @@ export class BookingService {
     return this.prisma.reservation.findMany({
       where: { guestId },
       orderBy: { createdAt: 'desc' },
+      select: RESERVATION_SELECT,
     });
   }
 
@@ -102,6 +134,7 @@ export class BookingService {
   async getOwned(guestId: string, id: string): Promise<ReservationResponseDto> {
     const r = await this.prisma.reservation.findFirst({
       where: { id, guestId },
+      select: RESERVATION_SELECT,
     });
     if (!r) throw new AppException('NOT_FOUND');
     return r;

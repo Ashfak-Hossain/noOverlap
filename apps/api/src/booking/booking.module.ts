@@ -1,4 +1,6 @@
 import { Module } from '@nestjs/common';
+import { BookingController } from './booking.controller';
+import { BookingService } from './booking.service';
 
 /**
  * Booking bounded context — guests place holds on date ranges and view their own reservations.
@@ -9,5 +11,8 @@ import { Module } from '@nestjs/common';
  * @remarks The controller and service are currently registered in `AppModule`; this module is their
  * home as the context grows its own providers.
  */
-@Module({})
+@Module({
+  controllers: [BookingController],
+  providers: [BookingService],
+})
 export class BookingModule {}

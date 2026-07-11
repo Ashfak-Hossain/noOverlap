@@ -12,8 +12,6 @@ import { APP_GUARD } from '@nestjs/core';
 import { ThrottlerModule } from '@nestjs/throttler';
 import { ThrottlerProblemGuard } from './identity/guards/throttler-problem.guard';
 import { BookingModule } from './booking/booking.module';
-import { BookingController } from './booking/booking.controller';
-import { BookingService } from './booking/booking.service';
 
 @Module({
   imports: [
@@ -30,11 +28,10 @@ import { BookingService } from './booking/booking.service';
     HealthModule,
     BookingModule,
   ],
-  controllers: [AppController, BookingController],
+  controllers: [AppController],
   providers: [
     AppService,
     { provide: APP_GUARD, useClass: ThrottlerProblemGuard },
-    BookingService,
   ],
 })
 export class AppModule {}
