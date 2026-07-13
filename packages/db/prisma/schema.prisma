@@ -1,10 +1,14 @@
-// Single source of truth for the schema, shared by `api` and the extracted `worker` via the
-// generated client in this package rather than each runtime owning its own copy.
-// The `reservations` no-overlap guarantee is NOT expressed here: it is a GiST exclusion
-// constraint added by a raw SQL migration alongside these Prisma migrations, because
-// Prisma's schema DSL cannot represent exclusion constraints.
+// Single source of truth for the schema, shared by `api` and the extracted `worker` through the
+// client generated here, rather than each runtime owning a copy that can drift.
+//
+// This file is not the whole truth about the database. The central guarantee -- that two active
+// reservations on a listing cannot overlap -- is a GiST exclusion constraint installed by a raw SQL
+// migration alongside these Prisma migrations, because Prisma's DSL cannot express one. Read the
+// Reservation model with that in mind.
 
 datasource db {
+  // No `url` here by design: prisma.config.ts injects it from DATABASE_URL, keeping the connection
+  // string out of a checked-in file.
   provider = "postgresql"
 }
 
@@ -97,12 +101,13 @@ model Reservation {
   checkOut        DateTime          @map("check_out") @db.Timestamptz
   status          ReservationStatus @default(HELD)
   priceTotalCents Int               @map("price_total_cents")
-  // TTL for an unpaid HELD reservation; a scheduled sweep transitions rows past this timestamp to
-  // EXPIRED (design.md §7), which removes them from the exclusion constraint's active set.
+  // TTL for an unpaid hold. A background sweep transitions rows past this timestamp to EXPIRED,
+  // which drops them from the constraint's active set and returns the slot to the pool. Without it,
+  // an abandoned checkout would hold a date range hostage forever.
   holdExpiresAt   DateTime          @map("hold_expires_at") @db.Timestamptz
-  // Not yet load-bearing: version-based optimistic locking was evaluated and rejected as the
-  // overlap-prevention mechanism (the exclusion constraint owns that). Reserved for a future
-  // optimistic-concurrency need on this row, not currently read or incremented by application code.
+  // Not load-bearing. Optimistic locking was considered as the overlap-prevention mechanism and
+  // rejected in favor of the exclusion constraint, which cannot be bypassed by a caller who forgets
+  // to check. Kept for a future optimistic-concurrency need; no application code reads or bumps it.
   version         Int               @default(0)
   createdAt       DateTime          @default(now()) @map("created_at") @db.Timestamptz
 
@@ -111,9 +116,14 @@ model Reservation {
   payments Payment[]
   review   Review?
 
-  // No-overlap is enforced by a GiST EXCLUSION CONSTRAINT added in a raw SQL migration.
-  // The constraint indexes the expression tstzrange(check_in, check_out, '[)') directly, so there
-  // is NO separate range column for Prisma to track. Prisma does not model exclusion constraints.
+  // No-overlap lives in the `no_overlapping_active_reservations` GiST exclusion constraint, added by
+  // a raw SQL migration. It indexes the expression tstzrange(check_in, check_out, '[)') over the two
+  // columns above, so there is no range column here to find -- do not add one.
+  //
+  // Two consequences worth knowing before touching this model. The bounds are half-open: a check-out
+  // and the next check-in may fall on the same instant, so same-day turnover is not an overlap. And
+  // conflicting concurrent inserts are settled by the database, which rejects the loser, rather than
+  // by any read-then-write check in application code -- there is no window between the two to lose.
 
   @@index([listingId])
   @@index([guestId])
@@ -121,14 +131,18 @@ model Reservation {
   @@map("reservations")
 }
 
-// idempotencyKey is unique because the worker charges the mock provider keyed by this value: a
-// redelivered charge message finds the existing row and returns its result instead of charging
-// twice. That is what makes at-least-once delivery from the outbox safe.
+// Ledger of charge attempts. No application code writes this table yet: the worker charges the
+// provider and reports the outcome over the result queue, where redelivery is absorbed by a
+// deterministic job id rather than by a row here. The table is defined ahead of that code.
 model Payment {
   id             String        @id @default(uuid()) @db.Uuid
   reservationId  String        @map("reservation_id") @db.Uuid
   status         PaymentStatus @default(PENDING)
   providerRef    String?       @map("provider_ref")
+  // Carries the reservation id, and is unique so that at most one charge can ever be recorded per
+  // booking. Delivery from the outbox is at-least-once, so the same charge can be attempted more
+  // than once; this constraint turns the second attempt into a collision the database rejects,
+  // rather than a double-charge that a read-then-write check could race past.
   idempotencyKey String        @unique @map("idempotency_key")
   amountCents    Int           @map("amount_cents")
   createdAt      DateTime      @default(now()) @map("created_at") @db.Timestamptz
@@ -139,11 +153,15 @@ model Payment {
   @@map("payments")
 }
 
-// Transactional outbox: written in the same DB transaction as the domain change it announces
-// so the event can never be lost or phantom-emitted relative
-// to that change. A polling relay selects publishedAt IS NULL rows and pushes them to BullMQ
-// using SELECT ... FOR UPDATE SKIP LOCKED, so multiple relay instances can't double-publish the
-// same row -- the index below serves that poll query.
+// Transactional outbox. The event row is written in the same transaction as the domain change it
+// announces, so the two commit or roll back together: an event can never describe a change that was
+// rolled back, and a committed change can never fail to announce itself. Writing to the queue
+// directly would give up exactly that -- the process can die between the commit and the publish.
+//
+// A relay polls for unpublished rows with SELECT ... FOR UPDATE SKIP LOCKED and pushes them to the
+// queue, so relay instances claim disjoint rows and never publish the same one twice. Publishing is
+// therefore at-least-once, not exactly-once: consumers must be idempotent. The index below serves
+// that poll.
 model Outbox {
   id          String    @id @default(uuid()) @db.Uuid
   aggregateId String    @map("aggregate_id") @db.Uuid
