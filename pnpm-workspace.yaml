@@ -5,6 +5,7 @@ allowBuilds:
   '@prisma/engines': true
   '@scarf/scarf': false
   cpu-features: false
+  msgpackr-extract: false
   prisma: true
   protobufjs: false
   ssh2: false
