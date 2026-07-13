@@ -7,6 +7,7 @@ import { CreateReservationDto } from './dto/create-reservation.dto';
 import { ReservationResponseDto } from './dto/reservation-response.dto';
 import { isExclusionViolation } from './exclusion-violation';
 import { Prisma, ReservationStatus } from '@no-overlap/db';
+import { BOOKING_HELD, type BookingHeld } from '@no-overlap/contracts';
 
 const MS_PER_DAY = 86_400_000; // one day (24 × 60 × 60 × 1000)
 
@@ -127,16 +128,36 @@ export class BookingService {
     const priceTotalCents = nights * listing.nightlyPriceCents;
 
     try {
-      return await this.prisma.reservation.create({
-        select: RESERVATION_SELECT,
-        data: {
-          listingId: dto.listingId,
-          guestId,
-          checkIn,
-          checkOut,
-          priceTotalCents,
-          holdExpiresAt: new Date(Date.now() + this.holdTtlMs),
-        },
+      return await this.prisma.$transaction(async (tx) => {
+        const reservation = await tx.reservation.create({
+          select: RESERVATION_SELECT,
+          data: {
+            listingId: dto.listingId,
+            guestId,
+            checkIn,
+            checkOut,
+            priceTotalCents,
+            holdExpiresAt: new Date(Date.now() + this.holdTtlMs),
+          },
+        });
+
+        const event = {
+          type: BOOKING_HELD,
+          version: 1,
+          reservationId: reservation.id,
+          amountCents: reservation.priceTotalCents,
+          idempotencyKey: reservation.id,
+        } satisfies BookingHeld;
+
+        await tx.outbox.create({
+          data: {
+            aggregateId: reservation.id,
+            type: BOOKING_HELD,
+            payload: event,
+          },
+        });
+
+        return reservation;
       });
     } catch (err) {
       if (isExclusionViolation(err))
