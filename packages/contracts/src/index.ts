@@ -49,3 +49,45 @@ export type BookingHeld = z.infer<typeof bookingHeldSchema>;
 
 /** BullMQ queue the relay publishes charge jobs onto; the worker consumes it. */
 export const CHARGE_QUEUE = 'booking.charge' as const;
+
+/** BullMQ queue the worker publishes payment results onto; the API consumes it. */
+export const RESULT_QUEUE = 'booking.payment-result' as const;
+
+export const PAYMENT_SUCCEEDED = 'PaymentSucceeded' as const;
+export const PAYMENT_FAILED = 'PaymentFailed' as const;
+
+/** The charge went through. `providerRef` is the provider's handle on it (stored for auditing). */
+export const paymentSucceededSchema = z.object({
+  type: z.literal(PAYMENT_SUCCEEDED),
+  version: z.literal(1),
+  reservationId: z.uuid(),
+  idempotencyKey: z.string().min(1),
+  amountCents: z.number().int().positive(),
+  providerRef: z.string().min(1),
+  traceContext: traceContextSchema.optional(),
+});
+export type PaymentSucceeded = z.infer<typeof paymentSucceededSchema>;
+
+/** The charge was terminally declined — not a transient blip. The saga compensates (releases the hold). */
+export const paymentFailedSchema = z.object({
+  type: z.literal(PAYMENT_FAILED),
+  version: z.literal(1),
+  reservationId: z.uuid(),
+  idempotencyKey: z.string().min(1),
+  reason: z.string().min(1),
+  traceContext: traceContextSchema.optional(),
+});
+export type PaymentFailed = z.infer<typeof paymentFailedSchema>;
+
+/**
+ * Either outcome, discriminated by `type` — the API's result consumer parses with this and switches
+ * on the tag, so an unknown or malformed result is rejected rather than half-handled.
+ */
+export const paymentResultSchema = z.discriminatedUnion('type', [
+  paymentSucceededSchema,
+  paymentFailedSchema,
+]);
+export type PaymentResult = z.infer<typeof paymentResultSchema>;
+
+/** Where charge jobs land after exhausting their retries — quarantined for inspection, not lost. */
+export const CHARGE_DLQ = 'booking.charge.dlq' as const;

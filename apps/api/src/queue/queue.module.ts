@@ -24,7 +24,16 @@ import { Env } from 'src/config/env.schema';
         },
       }),
     }),
-    BullModule.registerQueue({ name: CHARGE_QUEUE }),
+    BullModule.registerQueue({
+      name: CHARGE_QUEUE,
+      defaultJobOptions: {
+        attempts: 5,
+        backoff: {
+          type: 'exponential',
+          delay: 1_000,
+        },
+      },
+    }),
   ],
   // Re-exported so an importing module can inject the queue without registering it a second time —
   // registering twice would give that module its own producer rather than this shared one.

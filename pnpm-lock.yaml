@@ -229,6 +229,9 @@ importers:
 
   apps/worker:
     dependencies:
+      '@nestjs/bullmq':
+        specifier: ^11.0.4
+        version: 11.0.4(@nestjs/common@11.1.27(class-transformer@0.5.1)(class-validator@0.15.1)(reflect-metadata@0.2.2)(rxjs@7.8.2))(@nestjs/core@11.1.27)(bullmq@5.80.2)
       '@nestjs/common':
         specifier: ^11.0.1
         version: 11.1.27(class-transformer@0.5.1)(class-validator@0.15.1)(reflect-metadata@0.2.2)(rxjs@7.8.2)
@@ -244,6 +247,15 @@ importers:
       '@no-overlap/contracts':
         specifier: workspace:*
         version: link:../../packages/contracts
+      '@no-overlap/db':
+        specifier: workspace:*
+        version: link:../../packages/db
+      '@prisma/adapter-pg':
+        specifier: ^7.8.0
+        version: 7.8.0
+      bullmq:
+        specifier: ^5.80.2
+        version: 5.80.2
       ioredis:
         specifier: ^5.11.1
         version: 5.11.1

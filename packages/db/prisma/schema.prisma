@@ -146,6 +146,7 @@ model Payment {
   idempotencyKey String        @unique @map("idempotency_key")
   amountCents    Int           @map("amount_cents")
   createdAt      DateTime      @default(now()) @map("created_at") @db.Timestamptz
+  failureReason  String?       @map("failure_reason")
 
   reservation Reservation @relation(fields: [reservationId], references: [id], onDelete: Cascade)
 
