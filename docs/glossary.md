@@ -93,6 +93,24 @@ reuse is detected.
 **Ownership scoping** — the instance-level check that a caller owns the specific resource they act on,
 beyond merely having the right role.
 
+## The web client
+
+**Server state** — data the client holds that belongs to the server. Treated as a cache with a
+lifetime, not as application state, because it can change without the browser being told.
+
+**Query invalidation** — marking cached data stale after a write that would have changed it, so the
+next read fetches rather than trusting what it has.
+
+**Polling with a stopping condition** — re-reading a value on an interval only while it can still
+change, and stopping once it reaches a state it cannot leave. See
+[concepts/showing-async-work.md](concepts/showing-async-work.md).
+
+**Optimistic update** — showing the result of an action before the server confirms it. Deliberately
+not used for booking, where losing a slot is an ordinary outcome rather than a rare failure.
+
+**Design token** — a named value for a colour, size, or shadow, defined once and referenced
+everywhere, so both themes and any restyle are a change in one place.
+
 ## Cross-cutting
 
 **RFC 7807 / problem+json** — the standard error response shape (`type`, `title`, `status`, `detail`,

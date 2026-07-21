@@ -133,6 +133,29 @@ The mechanism, and the failure cases that shaped it, are covered in
 [decisions/0005-bullmq-worker-transport.md](decisions/0005-bullmq-worker-transport.md), and
 [decisions/0007-polling-relay.md](decisions/0007-polling-relay.md).
 
+## The web client
+
+A React application talks to the API over the same origin, so the refresh cookie needs no cross-origin
+arrangement. Server data is treated as a cache rather than as state: queries are keyed, invalidated by
+the mutations that make them stale, and — where a value is still changing — re-read on an interval
+that stops itself once it cannot change again.
+
+Two decisions there are worth surfacing, because both are visible in how the application behaves.
+
+The access token is held in memory and never written to storage, so a script injected into the page
+has nothing durable to steal; a reload asks for a fresh one using the httpOnly refresh cookie, and a
+single shared request prevents parallel refreshes from tripping the server's replay detection. The
+reasoning is in [decisions/0015-client-token-handling.md](decisions/0015-client-token-handling.md).
+
+Booking is never shown optimistically. Because exactly one guest can win a slot, losing is an ordinary
+outcome rather than a fault, so the interface shows the hold and its deadline and waits for the real
+answer instead of asserting one and retracting it. Notably there is no confirm button anywhere: a
+reservation is confirmed by the payment result arriving from the worker, and an endpoint that once let
+a guest confirm their own booking was removed when building the client revealed it bypassed payment
+altogether. That side of the seam is described in
+[../concepts/showing-async-work.md](../concepts/showing-async-work.md), and the stack choices in
+[decisions/0014-frontend-stack.md](decisions/0014-frontend-stack.md).
+
 ## Data model
 
 The load-bearing tables are `users`, `listings`, `availability_blocks`, `reservations`, `payments`, and

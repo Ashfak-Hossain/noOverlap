@@ -115,5 +115,8 @@ The full documentation lives in [docs/](docs/).
 The backend is built and tested: identity and access control, listings, the full booking lifecycle
 with the concurrency guarantee, and the asynchronous payment seam — a transactional outbox, a polling
 relay, and a separate worker that charges idempotently, retries transient failures, dead-letters
-poison messages, and compensates with refunds. The web client, live availability, tracing, and
-deployment are on the roadmap. The documentation grows alongside the code.
+poison messages, and compensates with refunds.
+
+The web client is built on top of it: search, listing detail, the booking flow with a live hold
+countdown that resolves itself when payment settles, trips, and a host dashboard. Live availability,
+tracing, and deployment are on the roadmap. The documentation grows alongside the code.

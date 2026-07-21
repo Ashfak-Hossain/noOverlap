@@ -23,6 +23,8 @@ readable long after the choice was made.
 | [0011](0011-auth-tokens.md)                 | RS256 access tokens, rotating refresh tokens, Argon2id | Accepted |
 | [0012](0012-testcontainers.md)              | Testcontainers for integration tests                   | Accepted |
 | [0013](0013-saga-state-machine-first.md)    | The booking saga as a state machine first              | Accepted |
+| [0014](0014-frontend-stack.md)              | Tailwind and React Router for the web client           | Accepted |
+| [0015](0015-client-token-handling.md)       | The access token lives in memory                       | Accepted |
 
 Numbers are assigned when a decision is taken and never reused, so the sequence reflects the order the
 questions actually arose. Records for parts of the system not yet built are written when that work

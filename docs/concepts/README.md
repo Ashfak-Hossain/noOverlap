@@ -10,6 +10,9 @@ way" of noOverlap.
   confirmation, compensation, expiry, and why every transition is safe to repeat.
 - [async-seam.md](async-seam.md) — how the intent to charge crosses a process boundary without ever
   being lost or acted on twice: the outbox, the relay, idempotency, retries, and compensation.
+- [showing-async-work.md](showing-async-work.md) — what that seam looks like to a person waiting: a
+  hold with a deadline, a poll that stops itself, and why a booking is never shown as confirmed
+  before it is.
 - [authentication.md](authentication.md) — password hashing, stateless access tokens, and refresh
   tokens that can be revoked the moment they are misused.
 - [access-control.md](access-control.md) — the three checks behind every protected action: are you
