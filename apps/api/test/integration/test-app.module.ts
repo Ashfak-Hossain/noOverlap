@@ -9,11 +9,14 @@ import { BookingModule } from '../../src/booking/booking.module';
 
 /**
  * The application under integration test: the real feature modules (Identity, Listings, Booking) plus
- * the shared error envelope + validation (CommonModule) and Prisma. HealthModule (Redis) and the
- * global throttler are intentionally left out — they are orthogonal to the behaviours asserted here,
- * and omitting them keeps the suite free of a Redis dependency and of rate limits that would trip the
- * concurrency storm. `ScheduleModule` is also omitted, so no background sweep runs during tests; the
- * expiry logic is driven directly via `sweepExpiredHolds()` for determinism.
+ * the shared error envelope + validation (CommonModule) and Prisma. HealthModule and the global
+ * throttler are intentionally left out — they are orthogonal to the behaviours asserted here, and
+ * omitting the throttler keeps rate limits from tripping the concurrency storm.
+ *
+ * Booking pulls in the queue module, so this app does connect to Redis (globalSetup starts a
+ * container for it). `ScheduleModule` is still omitted, so neither the expiry sweep nor the outbox
+ * relay fires on a timer; both are driven directly from the tests, which is what makes the async
+ * assertions deterministic instead of a race against a clock.
  */
 @Module({
   imports: [

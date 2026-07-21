@@ -2,6 +2,7 @@ import { INestApplication } from '@nestjs/common';
 import request from 'supertest';
 import { PrismaClient, ReservationStatus, Role } from '@no-overlap/db';
 import { PrismaPg } from '@prisma/adapter-pg';
+import { BookingService } from '../../src/booking/booking.service';
 import { ReservationExpiryService } from '../../src/booking/reservation-expiry.service';
 import { createTestApp, registerAndLogin } from './helpers';
 
@@ -16,6 +17,7 @@ describe('Reservations — lifecycle (e2e)', () => {
   let app: INestApplication;
   let prisma: PrismaClient;
   let sweep: ReservationExpiryService;
+  let booking: BookingService;
   let hostToken: string;
   let guestToken: string;
   let otherGuestToken: string;
@@ -26,6 +28,7 @@ describe('Reservations — lifecycle (e2e)', () => {
       adapter: new PrismaPg({ connectionString: process.env.DATABASE_URL! }),
     });
     sweep = app.get(ReservationExpiryService, { strict: false });
+    booking = app.get(BookingService, { strict: false });
     hostToken = (await registerAndLogin(app, Role.HOST)).accessToken;
     guestToken = (await registerAndLogin(app, Role.GUEST)).accessToken;
     otherGuestToken = (await registerAndLogin(app, Role.GUEST)).accessToken;
@@ -60,29 +63,64 @@ describe('Reservations — lifecycle (e2e)', () => {
   const post = (path: string, token: string) =>
     request(app.getHttpServer()).post(path).set(auth(token));
 
-  it('confirm: HELD -> CONFIRMED (200)', async () => {
+  it('a successful payment confirms the hold', async () => {
     const listingId = await freshListing();
     const held = await post('/reservations', guestToken)
       .send({ listingId, ...futureRange() })
       .expect(201);
-    const res = await post(
-      `/reservations/${held.body.id}/confirm`,
-      guestToken,
-    ).expect(200);
+
+    // There is no manual confirm endpoint: a reservation is only confirmed by a payment result
+    // arriving from the worker. This drives that path directly, without the queue, for determinism.
+    expect(await booking.applyPaymentSucceeded(held.body.id)).toEqual({
+      outcome: 'applied',
+    });
+
+    const res = await request(app.getHttpServer())
+      .get(`/reservations/${held.body.id}`)
+      .set(auth(guestToken))
+      .expect(200);
     expect(res.body.status).toBe(ReservationStatus.CONFIRMED);
   });
 
-  it('confirm is idempotent (second confirm stays CONFIRMED, no error)', async () => {
+  it('a redelivered success is a no-op, not a second confirm', async () => {
     const listingId = await freshListing();
     const held = await post('/reservations', guestToken)
       .send({ listingId, ...futureRange() })
       .expect(201);
-    await post(`/reservations/${held.body.id}/confirm`, guestToken).expect(200);
-    const again = await post(
-      `/reservations/${held.body.id}/confirm`,
-      guestToken,
-    ).expect(200);
-    expect(again.body.status).toBe(ReservationStatus.CONFIRMED);
+
+    await booking.applyPaymentSucceeded(held.body.id);
+    // At-least-once delivery means this message can arrive twice; the conditional update makes the
+    // repeat harmless rather than an error.
+    expect(await booking.applyPaymentSucceeded(held.body.id)).toEqual({
+      outcome: 'already-settled',
+    });
+
+    const after = await prisma.reservation.findUnique({
+      where: { id: held.body.id },
+    });
+    expect(after?.status).toBe(ReservationStatus.CONFIRMED);
+  });
+
+  it('a failed payment releases the hold and frees the slot', async () => {
+    const listingId = await freshListing();
+    const range = futureRange();
+    const held = await post('/reservations', guestToken)
+      .send({ listingId, ...range })
+      .expect(201);
+
+    expect(await booking.applyPaymentFailed(held.body.id)).toEqual({
+      outcome: 'applied',
+    });
+
+    const after = await prisma.reservation.findUnique({
+      where: { id: held.body.id },
+    });
+    expect(after?.status).toBe(ReservationStatus.CANCELLED);
+
+    // Compensation actually releases the slot: the same range books again.
+    await post('/reservations', guestToken)
+      .send({ listingId, ...range })
+      .expect(201);
   });
 
   it('cancel frees the slot: a previously-409 overlap succeeds after cancel', async () => {
@@ -100,13 +138,24 @@ describe('Reservations — lifecycle (e2e)', () => {
       .expect(201); // slot reopened
   });
 
-  it('illegal transition: confirming a CANCELLED reservation -> 409', async () => {
+  it('a charge that lands after the hold is gone demands a refund', async () => {
     const listingId = await freshListing();
     const held = await post('/reservations', guestToken)
       .send({ listingId, ...futureRange() })
       .expect(201);
     await post(`/reservations/${held.body.id}/cancel`, guestToken).expect(200);
-    await post(`/reservations/${held.body.id}/confirm`, guestToken).expect(409);
+
+    // The money moved but the slot is already released, so the booking cannot simply be revived —
+    // the caller is told to compensate instead of silently keeping the charge.
+    expect(await booking.applyPaymentSucceeded(held.body.id)).toEqual({
+      outcome: 'refund-required',
+      status: ReservationStatus.CANCELLED,
+    });
+
+    const after = await prisma.reservation.findUnique({
+      where: { id: held.body.id },
+    });
+    expect(after?.status).toBe(ReservationStatus.CANCELLED); // never revived
   });
 
   it('owner-scoped: another guest cannot act on your reservation -> 404', async () => {
@@ -114,7 +163,7 @@ describe('Reservations — lifecycle (e2e)', () => {
     const held = await post('/reservations', guestToken)
       .send({ listingId, ...futureRange() })
       .expect(201);
-    await post(`/reservations/${held.body.id}/confirm`, otherGuestToken).expect(
+    await post(`/reservations/${held.body.id}/cancel`, otherGuestToken).expect(
       404,
     );
   });
