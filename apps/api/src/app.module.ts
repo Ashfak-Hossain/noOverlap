@@ -13,6 +13,7 @@ import { APP_GUARD } from '@nestjs/core';
 import { ThrottlerModule } from '@nestjs/throttler';
 import { ThrottlerProblemGuard } from './identity/guards/throttler-problem.guard';
 import { BookingModule } from './booking/booking.module';
+import { ReviewsModule } from './reviews/reviews.module';
 import { ScheduleModule } from '@nestjs/schedule';
 
 @Module({
@@ -31,6 +32,7 @@ import { ScheduleModule } from '@nestjs/schedule';
     ListingsModule,
     HealthModule,
     BookingModule,
+    ReviewsModule,
   ],
   controllers: [AppController],
   providers: [

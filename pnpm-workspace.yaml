@@ -8,6 +8,8 @@ packages:
 # asked for another, and dependency injection failed with nothing in the source to explain it. Each app
 # now resolves its own consistent tree.
 dedupePeerDependents: false
+overrides:
+  typescript: ~6.0.3
 allowBuilds:
   '@prisma/engines': true
   '@scarf/scarf': false

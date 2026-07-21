@@ -28,6 +28,14 @@ export const ERROR_CATALOG = {
     status: 409,
     title: 'Reservation cannot change to that state',
   },
+  REVIEW_STAY_NOT_FINISHED: {
+    status: 409,
+    title: 'Stay has not finished',
+  },
+  REVIEW_ALREADY_EXISTS: {
+    status: 409,
+    title: 'Reservation already reviewed',
+  },
 } as const;
 
 export type ErrorCode = keyof typeof ERROR_CATALOG;

@@ -6,17 +6,47 @@
   },
   "auth": {
     "type": "bearer",
-    "bearer": [{ "key": "token", "value": "{{accessToken}}", "type": "string" }]
+    "bearer": [
+      {
+        "key": "token",
+        "value": "{{accessToken}}",
+        "type": "string"
+      }
+    ]
   },
   "variable": [
-    { "key": "baseUrl", "value": "http://localhost:3000" },
-    { "key": "email", "value": "guest@example.com" },
-    { "key": "password", "value": "correct-horse-battery-staple" },
-    { "key": "role", "value": "GUEST" },
-    { "key": "accessToken", "value": "" },
-    { "key": "listingId", "value": "" },
-    { "key": "availabilityId", "value": "" },
-    { "key": "reservationId", "value": "" }
+    {
+      "key": "baseUrl",
+      "value": "http://localhost:3000"
+    },
+    {
+      "key": "email",
+      "value": "guest@example.com"
+    },
+    {
+      "key": "password",
+      "value": "correct-horse-battery-staple"
+    },
+    {
+      "key": "role",
+      "value": "GUEST"
+    },
+    {
+      "key": "accessToken",
+      "value": ""
+    },
+    {
+      "key": "listingId",
+      "value": ""
+    },
+    {
+      "key": "availabilityId",
+      "value": ""
+    },
+    {
+      "key": "reservationId",
+      "value": ""
+    }
   ],
   "item": [
     {
@@ -43,17 +73,29 @@
             }
           ],
           "request": {
-            "auth": { "type": "noauth" },
+            "auth": {
+              "type": "noauth"
+            },
             "method": "POST",
-            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
             "body": {
               "mode": "raw",
               "raw": "{\n  \"email\": \"{{email}}\",\n  \"password\": \"{{password}}\",\n  \"role\": \"{{role}}\"\n}"
             },
             "url": {
               "raw": "{{baseUrl}}/auth/register",
-              "host": ["{{baseUrl}}"],
-              "path": ["auth", "register"]
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "auth",
+                "register"
+              ]
             },
             "description": "Create a user. Password is Argon2id-hashed; email uniqueness is enforced by the DB (duplicate -> 409 problem+json)."
           }
@@ -80,17 +122,29 @@
             }
           ],
           "request": {
-            "auth": { "type": "noauth" },
+            "auth": {
+              "type": "noauth"
+            },
             "method": "POST",
-            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
             "body": {
               "mode": "raw",
               "raw": "{\n  \"email\": \"{{email}}\",\n  \"password\": \"{{password}}\"\n}"
             },
             "url": {
               "raw": "{{baseUrl}}/auth/login",
-              "host": ["{{baseUrl}}"],
-              "path": ["auth", "login"]
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "auth",
+                "login"
+              ]
             },
             "description": "Verify credentials -> RS256 access token in the body + rotating refresh token in an HttpOnly cookie."
           }
@@ -113,17 +167,29 @@
             }
           ],
           "request": {
-            "auth": { "type": "noauth" },
+            "auth": {
+              "type": "noauth"
+            },
             "method": "POST",
-            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
             "body": {
               "mode": "raw",
               "raw": "{\n  \"email\": \"{{email}}\",\n  \"password\": \"definitely-the-wrong-password\"\n}"
             },
             "url": {
               "raw": "{{baseUrl}}/auth/login",
-              "host": ["{{baseUrl}}"],
-              "path": ["auth", "login"]
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "auth",
+                "login"
+              ]
             },
             "description": "Wrong password returns the same 401 as an unknown email (no user enumeration, timing-equalized)."
           }
@@ -149,13 +215,20 @@
             }
           ],
           "request": {
-            "auth": { "type": "noauth" },
+            "auth": {
+              "type": "noauth"
+            },
             "method": "POST",
             "header": [],
             "url": {
               "raw": "{{baseUrl}}/auth/refresh",
-              "host": ["{{baseUrl}}"],
-              "path": ["auth", "refresh"]
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "auth",
+                "refresh"
+              ]
             },
             "description": "Reads the refresh_token cookie (Postman's jar sends it), rotates it in place, and returns a new access token. Reuse-detection check: log in, Refresh once (rotates), then replay an OLD refresh token -> the whole family is revoked and every later Refresh returns 401 until you log in again."
           }
@@ -167,18 +240,27 @@
               "listen": "test",
               "script": {
                 "type": "text/javascript",
-                "exec": ["pm.test('status is 204', () => pm.response.to.have.status(204));"]
+                "exec": [
+                  "pm.test('status is 204', () => pm.response.to.have.status(204));"
+                ]
               }
             }
           ],
           "request": {
-            "auth": { "type": "noauth" },
+            "auth": {
+              "type": "noauth"
+            },
             "method": "POST",
             "header": [],
             "url": {
               "raw": "{{baseUrl}}/auth/logout",
-              "host": ["{{baseUrl}}"],
-              "path": ["auth", "logout"]
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "auth",
+                "logout"
+              ]
             },
             "description": "Revokes the refresh-token family and clears the cookie. Idempotent (no cookie -> still 204)."
           }
@@ -206,8 +288,13 @@
             "header": [],
             "url": {
               "raw": "{{baseUrl}}/auth/me",
-              "host": ["{{baseUrl}}"],
-              "path": ["auth", "me"]
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "auth",
+                "me"
+              ]
             },
             "description": "Protected route. Inherits Authorization: Bearer {{accessToken}} from the collection (set by Login). Returns 401 without a valid access token."
           }
@@ -220,13 +307,19 @@
         {
           "name": "Health",
           "request": {
-            "auth": { "type": "noauth" },
+            "auth": {
+              "type": "noauth"
+            },
             "method": "GET",
             "header": [],
             "url": {
               "raw": "{{baseUrl}}/health",
-              "host": ["{{baseUrl}}"],
-              "path": ["health"]
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "health"
+              ]
             },
             "description": "Liveness/readiness: checks Postgres + Redis. 200 when healthy, 503 when a dependency is down."
           }
@@ -256,15 +349,24 @@
           ],
           "request": {
             "method": "POST",
-            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
             "body": {
               "mode": "raw",
               "raw": "{\n  \"title\": \"Sunny loft near Alexanderplatz\",\n  \"city\": \"Berlin\",\n  \"nightlyPriceCents\": 8900,\n  \"maxGuests\": 4\n}"
             },
             "url": {
               "raw": "{{baseUrl}}/listings",
-              "host": ["{{baseUrl}}"],
-              "path": ["listings"]
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "listings"
+              ]
             },
             "description": "Create a listing. Requires a HOST token (inherited bearer). A GUEST token -> 403."
           }
@@ -276,21 +378,33 @@
               "listen": "test",
               "script": {
                 "type": "text/javascript",
-                "exec": ["pm.test('status is 200', () => pm.response.to.have.status(200));"]
+                "exec": [
+                  "pm.test('status is 200', () => pm.response.to.have.status(200));"
+                ]
               }
             }
           ],
           "request": {
             "method": "PATCH",
-            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
             "body": {
               "mode": "raw",
               "raw": "{\n  \"nightlyPriceCents\": 9500\n}"
             },
             "url": {
               "raw": "{{baseUrl}}/listings/{{listingId}}",
-              "host": ["{{baseUrl}}"],
-              "path": ["listings", "{{listingId}}"]
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "listings",
+                "{{listingId}}"
+              ]
             },
             "description": "Update your own listing. Another host's listing -> 403; unknown id -> 404."
           }
@@ -302,7 +416,9 @@
               "listen": "test",
               "script": {
                 "type": "text/javascript",
-                "exec": ["pm.test('status is 204', () => pm.response.to.have.status(204));"]
+                "exec": [
+                  "pm.test('status is 204', () => pm.response.to.have.status(204));"
+                ]
               }
             }
           ],
@@ -311,8 +427,13 @@
             "header": [],
             "url": {
               "raw": "{{baseUrl}}/listings/{{listingId}}",
-              "host": ["{{baseUrl}}"],
-              "path": ["listings", "{{listingId}}"]
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "listings",
+                "{{listingId}}"
+              ]
             },
             "description": "Delete your own listing. 204 on success."
           }
@@ -332,13 +453,19 @@
             }
           ],
           "request": {
-            "auth": { "type": "noauth" },
+            "auth": {
+              "type": "noauth"
+            },
             "method": "GET",
             "header": [],
             "url": {
               "raw": "{{baseUrl}}/listings",
-              "host": ["{{baseUrl}}"],
-              "path": ["listings"]
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "listings"
+              ]
             },
             "description": "Public browse of active listings, newest first. Append ?city=Berlin to filter by city."
           }
@@ -350,7 +477,9 @@
               "listen": "test",
               "script": {
                 "type": "text/javascript",
-                "exec": ["pm.test('status is 200', () => pm.response.to.have.status(200));"]
+                "exec": [
+                  "pm.test('status is 200', () => pm.response.to.have.status(200));"
+                ]
               }
             }
           ],
@@ -359,8 +488,13 @@
             "header": [],
             "url": {
               "raw": "{{baseUrl}}/listings/mine",
-              "host": ["{{baseUrl}}"],
-              "path": ["listings", "mine"]
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "listings",
+                "mine"
+              ]
             },
             "description": "The host's own listings, active and inactive. Requires a HOST token (inherited bearer)."
           }
@@ -372,18 +506,27 @@
               "listen": "test",
               "script": {
                 "type": "text/javascript",
-                "exec": ["pm.test('status is 200', () => pm.response.to.have.status(200));"]
+                "exec": [
+                  "pm.test('status is 200', () => pm.response.to.have.status(200));"
+                ]
               }
             }
           ],
           "request": {
-            "auth": { "type": "noauth" },
+            "auth": {
+              "type": "noauth"
+            },
             "method": "GET",
             "header": [],
             "url": {
               "raw": "{{baseUrl}}/listings/{{listingId}}",
-              "host": ["{{baseUrl}}"],
-              "path": ["listings", "{{listingId}}"]
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "listings",
+                "{{listingId}}"
+              ]
             },
             "description": "Public read of a single listing. 404 if the id is unknown."
           }
@@ -404,15 +547,26 @@
           ],
           "request": {
             "method": "POST",
-            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
             "body": {
               "mode": "raw",
               "raw": "{\n  \"startsAt\": \"2026-08-01T14:00:00.000Z\",\n  \"endsAt\": \"2026-08-10T11:00:00.000Z\",\n  \"kind\": \"OPEN\"\n}"
             },
             "url": {
               "raw": "{{baseUrl}}/listings/{{listingId}}/availability",
-              "host": ["{{baseUrl}}"],
-              "path": ["listings", "{{listingId}}", "availability"]
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "listings",
+                "{{listingId}}",
+                "availability"
+              ]
             },
             "description": "Add an availability window to your own listing. An inverted range (startsAt >= endsAt) -> 400."
           }
@@ -424,18 +578,28 @@
               "listen": "test",
               "script": {
                 "type": "text/javascript",
-                "exec": ["pm.test('status is 200', () => pm.response.to.have.status(200));"]
+                "exec": [
+                  "pm.test('status is 200', () => pm.response.to.have.status(200));"
+                ]
               }
             }
           ],
           "request": {
-            "auth": { "type": "noauth" },
+            "auth": {
+              "type": "noauth"
+            },
             "method": "GET",
             "header": [],
             "url": {
               "raw": "{{baseUrl}}/listings/{{listingId}}/availability",
-              "host": ["{{baseUrl}}"],
-              "path": ["listings", "{{listingId}}", "availability"]
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "listings",
+                "{{listingId}}",
+                "availability"
+              ]
             },
             "description": "Public: availability windows for a listing, earliest first. Unknown listing -> 404."
           }
@@ -447,7 +611,9 @@
               "listen": "test",
               "script": {
                 "type": "text/javascript",
-                "exec": ["pm.test('status is 204', () => pm.response.to.have.status(204));"]
+                "exec": [
+                  "pm.test('status is 204', () => pm.response.to.have.status(204));"
+                ]
               }
             }
           ],
@@ -456,8 +622,15 @@
             "header": [],
             "url": {
               "raw": "{{baseUrl}}/listings/{{listingId}}/availability/{{availabilityId}}",
-              "host": ["{{baseUrl}}"],
-              "path": ["listings", "{{listingId}}", "availability", "{{availabilityId}}"]
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "listings",
+                "{{listingId}}",
+                "availability",
+                "{{availabilityId}}"
+              ]
             },
             "description": "Remove an availability window from your own listing. 204 on success."
           }
@@ -488,15 +661,24 @@
           ],
           "request": {
             "method": "POST",
-            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
             "body": {
               "mode": "raw",
               "raw": "{\n  \"listingId\": \"{{listingId}}\",\n  \"checkIn\": \"2026-08-01T15:00:00.000Z\",\n  \"checkOut\": \"2026-08-05T11:00:00.000Z\"\n}"
             },
             "url": {
               "raw": "{{baseUrl}}/reservations",
-              "host": ["{{baseUrl}}"],
-              "path": ["reservations"]
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "reservations"
+              ]
             },
             "description": "Place a HELD reservation. Price = nights x nightly_price_cents (computed on the server); hold_expires_at = now + HOLD_TTL. guestId comes from the token, never the body. Saves the new id to `reservationId`."
           }
@@ -518,15 +700,24 @@
           ],
           "request": {
             "method": "POST",
-            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
             "body": {
               "mode": "raw",
               "raw": "{\n  \"listingId\": \"{{listingId}}\",\n  \"checkIn\": \"2026-08-03T15:00:00.000Z\",\n  \"checkOut\": \"2026-08-06T11:00:00.000Z\"\n}"
             },
             "url": {
               "raw": "{{baseUrl}}/reservations",
-              "host": ["{{baseUrl}}"],
-              "path": ["reservations"]
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "reservations"
+              ]
             },
             "description": "Overlaps hold A (Aug 3-6 vs Aug 1-5). The DB exclusion constraint rejects it (SQLSTATE 23P01); the service maps that to RESERVATION_SLOT_TAKEN. Run 'Create hold (A)' first."
           }
@@ -547,15 +738,24 @@
           ],
           "request": {
             "method": "POST",
-            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
             "body": {
               "mode": "raw",
               "raw": "{\n  \"listingId\": \"{{listingId}}\",\n  \"checkIn\": \"2026-08-05T11:00:00.000Z\",\n  \"checkOut\": \"2026-08-08T11:00:00.000Z\"\n}"
             },
             "url": {
               "raw": "{{baseUrl}}/reservations",
-              "host": ["{{baseUrl}}"],
-              "path": ["reservations"]
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "reservations"
+              ]
             },
             "description": "Back-to-back stay: check-in equals A's check-out. The half-open '[)' bounds mean this is NOT an overlap — same-day turnover is allowed."
           }
@@ -577,15 +777,24 @@
           ],
           "request": {
             "method": "POST",
-            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
             "body": {
               "mode": "raw",
               "raw": "{\n  \"listingId\": \"{{listingId}}\",\n  \"checkIn\": \"2026-08-20T15:00:00.000Z\",\n  \"checkOut\": \"2026-08-10T11:00:00.000Z\"\n}"
             },
             "url": {
               "raw": "{{baseUrl}}/reservations",
-              "host": ["{{baseUrl}}"],
-              "path": ["reservations"]
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "reservations"
+              ]
             },
             "description": "check-out before check-in -> 400 VALIDATION_FAILED (detail: 'checkOut must be after checkIn.')."
           }
@@ -609,8 +818,13 @@
             "header": [],
             "url": {
               "raw": "{{baseUrl}}/reservations/mine",
-              "host": ["{{baseUrl}}"],
-              "path": ["reservations", "mine"]
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "reservations",
+                "mine"
+              ]
             },
             "description": "The caller's own reservations, newest first. Scoped by guestId from the token — a guest never sees another guest's holds."
           }
@@ -635,62 +849,15 @@
             "header": [],
             "url": {
               "raw": "{{baseUrl}}/reservations/{{reservationId}}",
-              "host": ["{{baseUrl}}"],
-              "path": ["reservations", "{{reservationId}}"]
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "reservations",
+                "{{reservationId}}"
+              ]
             },
             "description": "Guest-scoped read of one reservation. Another guest's reservation id -> 404 (existence hidden, not 403)."
-          }
-        },
-        {
-          "name": "Confirm hold -> CONFIRMED",
-          "event": [
-            {
-              "listen": "test",
-              "script": {
-                "type": "text/javascript",
-                "exec": [
-                  "pm.test('status is 200', () => pm.response.to.have.status(200));",
-                  "pm.test('reservation is CONFIRMED', () =>",
-                  "  pm.expect(pm.response.json().status).to.eql('CONFIRMED'));"
-                ]
-              }
-            }
-          ],
-          "request": {
-            "method": "POST",
-            "header": [],
-            "url": {
-              "raw": "{{baseUrl}}/reservations/{{reservationId}}/confirm",
-              "host": ["{{baseUrl}}"],
-              "path": ["reservations", "{{reservationId}}", "confirm"]
-            },
-            "description": "Runs the (stubbed) payment then transitions HELD -> CONFIRMED. Acts on the last hold saved to `reservationId` (Create hold (A))."
-          }
-        },
-        {
-          "name": "Confirm again (idempotent) -> 200",
-          "event": [
-            {
-              "listen": "test",
-              "script": {
-                "type": "text/javascript",
-                "exec": [
-                  "pm.test('status is 200', () => pm.response.to.have.status(200));",
-                  "pm.test('still CONFIRMED, no double effect', () =>",
-                  "  pm.expect(pm.response.json().status).to.eql('CONFIRMED'));"
-                ]
-              }
-            }
-          ],
-          "request": {
-            "method": "POST",
-            "header": [],
-            "url": {
-              "raw": "{{baseUrl}}/reservations/{{reservationId}}/confirm",
-              "host": ["{{baseUrl}}"],
-              "path": ["reservations", "{{reservationId}}", "confirm"]
-            },
-            "description": "Re-confirming an already-CONFIRMED reservation is a no-op returning the same state (idempotent) — not an error."
           }
         },
         {
@@ -713,10 +880,204 @@
             "header": [],
             "url": {
               "raw": "{{baseUrl}}/reservations/{{reservationId}}/cancel",
-              "host": ["{{baseUrl}}"],
-              "path": ["reservations", "{{reservationId}}", "cancel"]
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "reservations",
+                "{{reservationId}}",
+                "cancel"
+              ]
             },
-            "description": "Transitions to CANCELLED (compensation). The slot is now free — re-run an overlapping 'Create hold' and it succeeds (201) where it previously returned 409. To see an illegal transition, run 'Confirm again' now: CANCELLED -> CONFIRMED is rejected with 409 INVALID_STATE_TRANSITION."
+            "description": "Transitions to CANCELLED (compensation). The slot is now free — re-run an overlapping 'Create hold' and it succeeds (201) where it previously returned 409. A CONFIRMED reservation cancelled here also enqueues a refund, under the same idempotency key the charge settled with."
+          }
+        },
+        {
+          "name": "List received (host)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status is 200', () => pm.response.to.have.status(200));",
+                  "pm.test('returns an array', () => pm.expect(pm.response.json()).to.be.an('array'));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/reservations/received",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "reservations",
+                "received"
+              ]
+            },
+            "description": "Every reservation made against the calling host's own listings. Requires a HOST token — sign in as the host first, or this returns 403. Declared before the `:id` route so the literal path segment is not captured by the UUID pipe."
+          }
+        }
+      ]
+    },
+    {
+      "name": "Reviews",
+      "description": "A stay can be reviewed only by the guest who took it, only once, and only after it has ended.\n\nOnly the refusals can be demonstrated from Postman alone: a review needs a COMPLETED reservation, and a reservation only reaches COMPLETED once its check-out is in the past and the completion sweep has run — neither of which any endpoint can force. To see the 201, backdate a confirmed reservation in psql and wait for the sweep (or restart the API, which runs it on its next tick):\n\n  UPDATE reservations SET check_in = now() - interval '6 days', check_out = now() - interval '3 days' WHERE id = '<reservationId>';",
+      "item": [
+        {
+          "name": "Create review - stay not finished -> 409",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status is 409', () => pm.response.to.have.status(409));",
+                  "pm.test('refused as premature, not as missing', () =>",
+                  "  pm.expect(pm.response.json().type).to.include('review-stay-not-finished'));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"reservationId\": \"{{reservationId}}\",\n  \"rating\": 5,\n  \"body\": \"Lovely place.\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/reviews",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "reviews"
+              ]
+            },
+            "description": "Acts on the last hold saved to `reservationId`. A conflict rather than a 404, because the request is well-formed and merely premature — the same call succeeds once the stay has ended."
+          }
+        },
+        {
+          "name": "Create review - another guest's reservation -> 404",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status is 404', () => pm.response.to.have.status(404));",
+                  "pm.test('reads as missing, not forbidden', () =>",
+                  "  pm.expect(pm.response.json().type).to.include('not-found'));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"reservationId\": \"00000000-0000-4000-8000-000000000000\",\n  \"rating\": 5\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/reviews",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "reviews"
+              ]
+            },
+            "description": "A reservation that is not yours returns exactly what a reservation that does not exist returns. Sign in as a second guest and send a real `reservationId` belonging to the first: the response is identical to this one. That is deliberate — a distinguishable 403 would let reservation ids be probed for existence."
+          }
+        },
+        {
+          "name": "Create review - rating out of range -> 400",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status is 400', () => pm.response.to.have.status(400));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"reservationId\": \"{{reservationId}}\",\n  \"rating\": 6\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/reviews",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "reviews"
+              ]
+            },
+            "description": "Validation runs before any eligibility check, so a malformed request never reveals whether the reservation exists."
+          }
+        },
+        {
+          "name": "Get listing reviews + rating",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status is 200', () => pm.response.to.have.status(200));",
+                  "pm.test('an unreviewed listing reports null, not zero', () => {",
+                  "  const b = pm.response.json();",
+                  "  if (b.count === 0) pm.expect(b.averageRating).to.eql(null);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "auth": {
+              "type": "noauth"
+            },
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/listings/{{listingId}}/reviews",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "listings",
+                "{{listingId}}",
+                "reviews"
+              ]
+            },
+            "description": "Public: reviews are what a guest reads while deciding whether to book, so they are not behind an account. A listing nobody has reviewed reports `averageRating: null` rather than 0 — zero is a rating a listing can genuinely earn, and reporting it for \"nothing said yet\" would be untrue."
           }
         }
       ]

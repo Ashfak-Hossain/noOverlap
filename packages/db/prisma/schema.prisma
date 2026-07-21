@@ -74,6 +74,7 @@ model Listing {
   host               User                @relation(fields: [hostId], references: [id], onDelete: Cascade)
   availabilityBlocks AvailabilityBlock[]
   reservations       Reservation[]
+  reviews            Review[]
 
   @@index([city])
   @@index([hostId])
@@ -175,15 +176,26 @@ model Outbox {
   @@map("outbox")
 }
 
+// A guest's verdict on a stay. The reservation is the evidence the stay happened -- and being unique,
+// it is also what limits a guest to one review per booking, enforced by the database rather than by a
+// check the application could race past.
 model Review {
   id            String   @id @default(uuid()) @db.Uuid
   reservationId String   @unique @map("reservation_id") @db.Uuid
+  // Duplicated from the reservation, and written only by the server from the reservation it just
+  // authorised -- never from the request. A review is *about a listing*, so carrying the listing here
+  // lets reviews and their average be read with one indexed query instead of a join through the
+  // reservations table, which belongs to another module. The cost is a copied column: it is set once
+  // at insert and never updated, because a review cannot move to a different stay.
+  listingId     String   @map("listing_id") @db.Uuid
   rating        Int
   body          String?
   createdAt     DateTime @default(now()) @map("created_at") @db.Timestamptz
 
   reservation Reservation @relation(fields: [reservationId], references: [id], onDelete: Cascade)
+  listing     Listing     @relation(fields: [listingId], references: [id], onDelete: Cascade)
 
+  @@index([listingId])
   @@map("reviews")
 }
 

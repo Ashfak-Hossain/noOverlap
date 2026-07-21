@@ -4,6 +4,7 @@ import { PrismaClient, ReservationStatus, Role } from '@no-overlap/db';
 import { PrismaPg } from '@prisma/adapter-pg';
 import { BookingService } from '../../src/booking/booking.service';
 import { ReservationExpiryService } from '../../src/booking/reservation-expiry.service';
+import { ReservationCompletionService } from '../../src/booking/reservation-completion.service';
 import { createTestApp, registerAndLogin } from './helpers';
 
 const DAY = 86_400_000;
@@ -17,6 +18,7 @@ describe('Reservations — lifecycle (e2e)', () => {
   let app: INestApplication;
   let prisma: PrismaClient;
   let sweep: ReservationExpiryService;
+  let completion: ReservationCompletionService;
   let booking: BookingService;
   let hostToken: string;
   let guestToken: string;
@@ -28,6 +30,7 @@ describe('Reservations — lifecycle (e2e)', () => {
       adapter: new PrismaPg({ connectionString: process.env.DATABASE_URL! }),
     });
     sweep = app.get(ReservationExpiryService, { strict: false });
+    completion = app.get(ReservationCompletionService, { strict: false });
     booking = app.get(BookingService, { strict: false });
     hostToken = (await registerAndLogin(app, Role.HOST)).accessToken;
     guestToken = (await registerAndLogin(app, Role.GUEST)).accessToken;
@@ -191,5 +194,85 @@ describe('Reservations — lifecycle (e2e)', () => {
     await post('/reservations', guestToken)
       .send({ listingId, ...range })
       .expect(201); // slot freed
+  });
+
+  /**
+   * A stay can only be booked into the future, so reaching a past check-out means confirming a
+   * reservation over HTTP and then backdating it in the database. That is the only way to construct
+   * the state; the sweep itself is exercised for real.
+   */
+  const confirmedStayEndingInThePast = async (): Promise<string> => {
+    const listingId = await freshListing();
+    const held = await post('/reservations', guestToken)
+      .send({ listingId, ...futureRange() })
+      .expect(201);
+    await booking.applyPaymentSucceeded(held.body.id);
+
+    const id = held.body.id as string;
+    await prisma.reservation.update({
+      where: { id },
+      data: {
+        checkIn: new Date(Date.now() - 5 * DAY),
+        checkOut: new Date(Date.now() - 2 * DAY),
+      },
+    });
+    return id;
+  };
+
+  it('the sweep completes a confirmed stay whose check-out has passed', async () => {
+    const id = await confirmedStayEndingInThePast();
+
+    expect(await completion.sweepCompletedStays()).toBeGreaterThanOrEqual(1);
+
+    const after = await prisma.reservation.findUnique({ where: { id } });
+    // COMPLETED was unreachable before this sweep existed: a legal transition target that nothing
+    // ever moved a row into.
+    expect(after?.status).toBe(ReservationStatus.COMPLETED);
+  });
+
+  it('sweeping twice changes nothing the second time', async () => {
+    const id = await confirmedStayEndingInThePast();
+    await completion.sweepCompletedStays();
+
+    // The status filter is what makes this idempotent: the first run's rows are no longer CONFIRMED,
+    // so they cannot match again. This is also why two instances sweeping concurrently is safe.
+    expect(await completion.sweepCompletedStays()).toBe(0);
+
+    const after = await prisma.reservation.findUnique({ where: { id } });
+    expect(after?.status).toBe(ReservationStatus.COMPLETED);
+  });
+
+  it('the sweep leaves a stay that is still running, and one that was never paid for', async () => {
+    const listingId = await freshListing();
+    const running = await post('/reservations', guestToken)
+      .send({ listingId, ...futureRange() })
+      .expect(201);
+    await booking.applyPaymentSucceeded(running.body.id);
+
+    // A hold whose dates have passed without payment is the expiry sweep's business, not this one's:
+    // completing it would record a stay that never happened, and make it reviewable.
+    const unpaid = await post('/reservations', guestToken)
+      .send({ listingId, ...futureRange() })
+      .expect(201);
+    // Both ends move: the exclusion constraint indexes tstzrange(check_in, check_out), and Postgres
+    // refuses a range that ends before it starts.
+    await prisma.reservation.update({
+      where: { id: unpaid.body.id },
+      data: {
+        checkIn: new Date(Date.now() - 5 * DAY),
+        checkOut: new Date(Date.now() - 2 * DAY),
+      },
+    });
+
+    await completion.sweepCompletedStays();
+
+    expect(
+      (await prisma.reservation.findUnique({ where: { id: running.body.id } }))
+        ?.status,
+    ).toBe(ReservationStatus.CONFIRMED);
+    expect(
+      (await prisma.reservation.findUnique({ where: { id: unpaid.body.id } }))
+        ?.status,
+    ).toBe(ReservationStatus.HELD);
   });
 });

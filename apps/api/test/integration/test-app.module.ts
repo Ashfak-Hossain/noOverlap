@@ -7,6 +7,7 @@ import { RedisModule } from '../../src/redis/redis.module';
 import { IdentityModule } from '../../src/identity/identity.module';
 import { ListingsModule } from '../../src/listings/listings.module';
 import { BookingModule } from '../../src/booking/booking.module';
+import { ReviewsModule } from '../../src/reviews/reviews.module';
 
 /**
  * The application under integration test: the real feature modules (Identity, Listings, Booking) plus
@@ -31,6 +32,7 @@ import { BookingModule } from '../../src/booking/booking.module';
     IdentityModule,
     ListingsModule,
     BookingModule,
+    ReviewsModule,
   ],
 })
 export class TestAppModule {}
