@@ -34,6 +34,10 @@ export const router = createBrowserRouter([
       { path: 'signup', lazy: () => import('./routes/SignUp') },
 
       // Everything below needs a session: they are all scoped to the caller.
+      {
+        path: 'listings/:id/reserve',
+        lazy: guarded(() => import('./routes/Reserve')),
+      },
       { path: 'trips', lazy: guarded(() => import('./routes/Trips')) },
       { path: 'trips/:id', lazy: guarded(() => import('./routes/TripDetail')) },
       {

@@ -1,4 +1,4 @@
-import { useState, type FormEvent } from 'react';
+import { useState, type SubmitEvent } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router';
 import { Button } from '../../components/Button';
 import { Field } from '../../components/Field';
@@ -85,7 +85,7 @@ export function AuthScreen({ mode }: { mode: 'signin' | 'signup' }) {
   /** Where the user was heading before being sent to sign in. */
   const next = (location.state as { from?: string } | null)?.from ?? '/';
 
-  async function onSubmit(event: FormEvent) {
+  async function onSubmit(event: SubmitEvent<HTMLFormElement>) {
     event.preventDefault();
     setSubmitting(true);
     setFormError(null);

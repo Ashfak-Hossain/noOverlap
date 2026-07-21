@@ -1,5 +1,5 @@
 import { useQuery } from '@tanstack/react-query';
-import { Link, useParams } from 'react-router';
+import { Link, useLocation, useNavigate, useParams } from 'react-router';
 import { Button } from '../components/Button';
 import { Card, EmptyState, Skeleton } from '../components/primitives';
 import { DateRangeField } from '../features/booking/DateRangeField';
@@ -40,6 +40,8 @@ export function Component() {
   const { id = '' } = useParams();
   const [criteria, update] = useSearchCriteria();
   const { isAuthenticated } = useSession();
+  const navigate = useNavigate();
+  const { search } = useLocation();
 
   const {
     data: listing,
@@ -177,7 +179,21 @@ export function Component() {
             )}
 
             {rangeValid ? (
-              <Button size="lg" className="mt-4.5 w-full">
+              <Button
+                size="lg"
+                className="mt-4.5 w-full"
+                onClick={() =>
+                  isAuthenticated
+                    ? void navigate(`/listings/${listing.id}/reserve${search}`)
+                    : // Send them to sign in, remembering the reserve URL so they land back here —
+                      // with their dates intact — rather than at the top of the site.
+                      void navigate('/signin', {
+                        state: {
+                          from: `/listings/${listing.id}/reserve${search}`,
+                        },
+                      })
+                }
+              >
                 {isAuthenticated ? 'Reserve' : 'Sign in to reserve'}
               </Button>
             ) : (
