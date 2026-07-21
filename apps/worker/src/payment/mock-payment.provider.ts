@@ -14,6 +14,8 @@ export type ChargeOutcome =
   | { status: 'succeeded'; providerRef: string }
   | { status: 'declined'; reason: string };
 
+export type RefundOutcome = { status: 'refunded' };
+
 /**
  * A transient provider fault: the charge may yet succeed, so the job is retried, never compensated.
  *
@@ -100,6 +102,29 @@ export class MockPaymentProvider {
         : { status: 'succeeded', providerRef: `mock_${idempotencyKey}` };
 
     // Settled from here on: this key can never be charged again.
+    await this.redis.set(ledgerKey, JSON.stringify(outcome));
+    return outcome;
+  }
+
+  /**
+   * Refunds a prior charge. Idempotent and keyed the same way as {@link charge}: a redelivered refund
+   * replays the recorded outcome instead of moving money a second time. A real gateway would reject a
+   * refund whose charge it has no record of; the mock simply records that this key has been refunded.
+   */
+  async refund(idempotencyKey: string): Promise<RefundOutcome> {
+    const ledgerKey = `mock-provider:refund:${idempotencyKey}`;
+
+    const prior = await this.redis.get(ledgerKey);
+    if (prior) {
+      this.logger.log(`Replaying prior refund for key ${idempotencyKey}`);
+      return JSON.parse(prior) as RefundOutcome;
+    }
+
+    if (this.latencyMs > 0) {
+      await sleep(this.latencyMs);
+    }
+
+    const outcome: RefundOutcome = { status: 'refunded' };
     await this.redis.set(ledgerKey, JSON.stringify(outcome));
     return outcome;
   }

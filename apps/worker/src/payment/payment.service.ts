@@ -1,6 +1,7 @@
 import {
   PAYMENT_FAILED,
   PAYMENT_SUCCEEDED,
+  RefundRequested,
   type BookingHeld,
   type PaymentResult,
 } from '@no-overlap/contracts';
@@ -102,5 +103,27 @@ export class PaymentService {
       idempotencyKey: event.idempotencyKey,
       reason: payment.failureReason ?? 'Card declined',
     };
+  }
+
+  /**
+   * Refunds a booking's charge and marks the payment REFUNDED. Idempotent and safe to redeliver.
+   *
+   * Refunds only a SUCCEEDED payment: a PENDING or FAILED one never took the money, and an already
+   * REFUNDED one is a no-op. Returns quietly in every other case rather than throwing, because a
+   * refund request for a charge that was never settled is not a fault worth retrying.
+   */
+  async refund(event: RefundRequested): Promise<void> {
+    const payment = await this.prisma.payment.findUnique({
+      where: { idempotencyKey: event.idempotencyKey },
+    });
+    if (!payment || payment.status !== PaymentStatus.SUCCEEDED) {
+      return;
+    }
+
+    await this.provider.refund(event.idempotencyKey);
+    await this.prisma.payment.update({
+      where: { idempotencyKey: event.idempotencyKey },
+      data: { status: PaymentStatus.REFUNDED },
+    });
   }
 }

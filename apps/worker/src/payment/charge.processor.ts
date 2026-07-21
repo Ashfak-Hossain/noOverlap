@@ -39,7 +39,7 @@ export class ChargeProcessor extends WorkerHost {
    * stays safe because {@link PaymentService.charge} is keyed on the idempotency key; the deterministic
    * `jobId` below additionally stops a redelivery from enqueueing a second result.
    */
-  async process(job: Job): Promise<void> {
+  async process(job: Job<unknown>): Promise<void> {
     // The trust boundary: this payload crossed a process boundary, so it is parsed, never assumed.
     const event = bookingHeldSchema.parse(job.data);
 
@@ -65,7 +65,7 @@ export class ChargeProcessor extends WorkerHost {
    * queue preserves the evidence for a human — which is the entire purpose of a dead letter.
    */
   @OnWorkerEvent('failed')
-  async onFailed(job: Job | undefined, err: Error): Promise<void> {
+  async onFailed(job: Job<unknown> | undefined, err: Error): Promise<void> {
     if (!job) return;
 
     const allowed = job.opts.attempts ?? 1;

@@ -70,17 +70,8 @@ export class BookingController {
     return this.booking.getOwned(user.userId, id);
   }
 
-  @Post(':id/confirm')
-  @Auth()
-  @HttpCode(HttpStatus.OK)
-  @ApiOkResponse({ type: ReservationResponseDto })
-  confirm(
-    @CurrentUser() user: AuthUser,
-    @Param('id', ParseUUIDPipe) id: string,
-  ): Promise<ReservationResponseDto> {
-    return this.booking.confirm(user.userId, id);
-  }
-
+  // No manual confirm endpoint: a reservation is confirmed only by a successful payment flowing back
+  // through the saga (PaymentSucceeded -> CONFIRMED). A guest-triggered confirm would bypass payment.
   @Post(':id/cancel')
   @Auth()
   @HttpCode(HttpStatus.OK)

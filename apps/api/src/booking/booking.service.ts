@@ -8,6 +8,23 @@ import { ReservationResponseDto } from './dto/reservation-response.dto';
 import { isExclusionViolation } from './exclusion-violation';
 import { Prisma, ReservationStatus } from '@no-overlap/db';
 import { BOOKING_HELD, type BookingHeld } from '@no-overlap/contracts';
+import { InjectQueue } from '@nestjs/bullmq';
+import {
+  REFUND_QUEUE,
+  REFUND_REQUESTED,
+  type RefundRequested,
+} from '@no-overlap/contracts';
+import { Queue } from 'bullmq';
+
+/**
+ * What applying a payment result did to the reservation. Reported rather than thrown, because a
+ * result for an already-settled booking is ordinary under at-least-once delivery, not a fault.
+ */
+export type SettlementOutcome =
+  | { outcome: 'applied' }
+  | { outcome: 'already-settled' }
+  | { outcome: 'missing' }
+  | { outcome: 'refund-required'; status: ReservationStatus };
 
 const MS_PER_DAY = 86_400_000; // one day (24 × 60 × 60 × 1000)
 
@@ -63,6 +80,7 @@ export class BookingService {
   constructor(
     private readonly prisma: PrismaService,
     config: ConfigService,
+    @InjectQueue(REFUND_QUEUE) private readonly refundQueue: Queue,
   ) {
     // Parse the human-friendly HOLD_TTL (e.g. "15m") once at startup; getOrThrow fails fast if unset.
     this.holdTtlMs = ms(
@@ -192,39 +210,6 @@ export class BookingService {
   }
 
   /**
-   * Confirms a held reservation after (stubbed) payment succeeds. Idempotent: re-confirming an
-   * already-CONFIRMED reservation is a no-op returning the same state.
-   */
-  async confirm(guestId: string, id: string): Promise<ReservationResponseDto> {
-    const current = await this.getOwned(guestId, id);
-    if (current.status === ReservationStatus.CONFIRMED) {
-      return current; // idempotent no-op
-    }
-    assertTransition(current.status, ReservationStatus.CONFIRMED); // HELD -> CONFIRMED; else 409
-
-    await this.chargeStub(current);
-
-    // Atomic transition: only flip a row that is STILL held. updateMany filters on status inside the
-    // same statement the DB runs, so a hold that expired (or was cancelled) between the read above and
-    // this write cannot be revived — the check and the act are one operation, not two.
-    const { count } = await this.prisma.reservation.updateMany({
-      where: { id, status: ReservationStatus.HELD },
-      data: { status: ReservationStatus.CONFIRMED },
-    });
-
-    if (count === 0) {
-      // We lost the race. Re-read the truth and react to it.
-      const latest = await this.getOwned(guestId, id);
-      if (latest.status === ReservationStatus.CONFIRMED) {
-        return latest; // a concurrent confirm won
-      }
-      assertTransition(latest.status, ReservationStatus.CONFIRMED); // EXPIRED/CANCELLED -> 409
-    }
-
-    return this.getOwned(guestId, id);
-  }
-
-  /**
    * Cancels a reservation (the compensation step). The freed slot is immediately re-bookable because
    * the exclusion constraint ignores CANCELLED rows. Idempotent.
    */
@@ -233,21 +218,91 @@ export class BookingService {
     if (current.status === ReservationStatus.CANCELLED) {
       return current; // idempotent no-op
     }
-    assertTransition(current.status, ReservationStatus.CANCELLED); // HELD/CONFIRMED -> CANCELLED; else 409
+    assertTransition(current.status, ReservationStatus.CANCELLED);
 
-    return this.prisma.reservation.update({
+    // A confirmed reservation was paid, so releasing it must give the money back. The idempotency key
+    // is the reservation id — the same key the charge settled under.
+    const wasPaid = current.status === ReservationStatus.CONFIRMED;
+
+    const cancelled = await this.prisma.reservation.update({
       where: { id },
       data: { status: ReservationStatus.CANCELLED },
       select: RESERVATION_SELECT,
     });
+
+    if (wasPaid) {
+      await this.refundQueue.add(
+        REFUND_REQUESTED,
+        {
+          type: REFUND_REQUESTED,
+          version: 1,
+          reservationId: id,
+          idempotencyKey: id,
+        } satisfies RefundRequested,
+        { jobId: `${REFUND_REQUESTED}-${id}` },
+      );
+    }
+
+    return cancelled;
   }
 
   /**
-   * Placeholder for the payment charge.
+   * Applies a successful charge: HELD -> CONFIRMED.
+   *
+   * Idempotent by construction. The conditional update only touches a row that is still HELD, so a
+   * redelivered result cannot re-confirm, and a hold that expired between the charge and this message
+   * cannot be revived.
+   *
+   * @returns `refund-required` when the charge succeeded but the hold is already gone — money moved
+   * with no booking to show for it, which the caller must compensate.
    */
-  private async chargeStub(
-    _reservation: ReservationResponseDto,
-  ): Promise<void> {
-    // no-op success for now
+  async applyPaymentSucceeded(
+    reservationId: string,
+  ): Promise<SettlementOutcome> {
+    const { count } = await this.prisma.reservation.updateMany({
+      where: { id: reservationId, status: ReservationStatus.HELD },
+      data: { status: ReservationStatus.CONFIRMED },
+    });
+    if (count === 1) {
+      return { outcome: 'applied' };
+    }
+
+    const current = await this.prisma.reservation.findUnique({
+      where: { id: reservationId },
+      select: { status: true },
+    });
+    if (!current) {
+      return { outcome: 'missing' };
+    }
+    if (current.status === ReservationStatus.CONFIRMED) {
+      return { outcome: 'already-settled' };
+    }
+    // EXPIRED or CANCELLED: the slot is gone but the card was charged.
+    return { outcome: 'refund-required', status: current.status };
+  }
+
+  /**
+   * Applies a declined charge: HELD -> CANCELLED, which releases the slot immediately because the
+   * exclusion constraint ignores cancelled rows. This is the saga's compensation step.
+   *
+   * Idempotent: a redelivered failure finds the reservation already settled and does nothing.
+   */
+  async applyPaymentFailed(reservationId: string): Promise<SettlementOutcome> {
+    const { count } = await this.prisma.reservation.updateMany({
+      where: {
+        id: reservationId,
+        status: ReservationStatus.HELD,
+      },
+      data: { status: ReservationStatus.CANCELLED },
+    });
+    if (count === 1) {
+      return { outcome: 'applied' };
+    }
+
+    const current = await this.prisma.reservation.findUnique({
+      where: { id: reservationId },
+      select: { status: true },
+    });
+    return current ? { outcome: 'already-settled' } : { outcome: 'missing' };
   }
 }

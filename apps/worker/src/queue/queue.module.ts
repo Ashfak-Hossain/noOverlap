@@ -1,7 +1,12 @@
 import { BullModule } from '@nestjs/bullmq';
 import { Module } from '@nestjs/common';
 import { ConfigModule, ConfigService } from '@nestjs/config';
-import { CHARGE_DLQ, CHARGE_QUEUE, RESULT_QUEUE } from '@no-overlap/contracts';
+import {
+  CHARGE_DLQ,
+  CHARGE_QUEUE,
+  REFUND_QUEUE,
+  RESULT_QUEUE,
+} from '@no-overlap/contracts';
 import type { Env } from '../config/env.schema';
 
 /**
@@ -31,6 +36,7 @@ import type { Env } from '../config/env.schema';
       { name: CHARGE_QUEUE },
       { name: RESULT_QUEUE },
       { name: CHARGE_DLQ },
+      { name: REFUND_QUEUE },
     ),
   ],
   // Re-exported so an importing module can inject a queue without registering it a second time —

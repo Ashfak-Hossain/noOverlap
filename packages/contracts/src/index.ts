@@ -91,3 +91,18 @@ export type PaymentResult = z.infer<typeof paymentResultSchema>;
 
 /** Where charge jobs land after exhausting their retries — quarantined for inspection, not lost. */
 export const CHARGE_DLQ = 'booking.charge.dlq' as const;
+
+/** BullMQ queue the API publishes refund requests onto; the worker consumes it. */
+export const REFUND_QUEUE = 'booking.refund' as const;
+
+export const REFUND_REQUESTED = 'RefundRequested' as const;
+
+/** Asks the worker to refund a settled charge — the compensation when a paid booking can't stand. */
+export const refundRequestedSchema = z.object({
+  type: z.literal(REFUND_REQUESTED),
+  version: z.literal(1),
+  reservationId: z.uuid(),
+  idempotencyKey: z.string().min(1), // the original charge key — the refund settles against it
+  traceContext: traceContextSchema.optional(),
+});
+export type RefundRequested = z.infer<typeof refundRequestedSchema>;

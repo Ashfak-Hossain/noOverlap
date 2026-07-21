@@ -4,6 +4,7 @@ import { RedisModule } from '../redis/redis.module';
 import { ChargeProcessor } from './charge.processor';
 import { MockPaymentProvider } from './mock-payment.provider';
 import { PaymentService } from './payment.service';
+import { RefundProcessor } from './refund.processor';
 
 /**
  * Payment module — the worker's one job: charge a held booking and publish the outcome.
@@ -16,6 +17,11 @@ import { PaymentService } from './payment.service';
 @Module({
   // RedisModule supplies the client the provider keeps its charge ledger in.
   imports: [QueueModule, RedisModule],
-  providers: [MockPaymentProvider, PaymentService, ChargeProcessor],
+  providers: [
+    MockPaymentProvider,
+    PaymentService,
+    ChargeProcessor,
+    RefundProcessor,
+  ],
 })
 export class PaymentModule {}
