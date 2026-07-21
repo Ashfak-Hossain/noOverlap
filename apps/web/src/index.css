@@ -1,0 +1,217 @@
+@import 'tailwindcss';
+
+/*
+ * Design tokens, taken verbatim from the design system.
+ *
+ * These raw custom properties are the source of truth and the only place a colour is written down.
+ * The theme is selected by `data-theme` on <html> rather than the OS setting alone, so the user can
+ * override it and the choice can be persisted.
+ */
+:root {
+  --bg: oklch(0.985 0.004 250);
+  --surface: #ffffff;
+  --surface-2: oklch(0.972 0.006 250);
+  --surface-3: oklch(0.955 0.009 250);
+  --border: oklch(0.915 0.008 250);
+  --border-strong: oklch(0.86 0.012 250);
+  --text: oklch(0.27 0.024 262);
+  --text-muted: oklch(0.5 0.02 262);
+  --text-faint: oklch(0.62 0.016 262);
+  --accent: oklch(0.58 0.13 250);
+  --accent-hover: oklch(0.52 0.14 250);
+  --accent-soft: oklch(0.955 0.028 250);
+  --accent-2: oklch(0.62 0.1 205);
+  --accent-2-soft: oklch(0.955 0.03 205);
+  --on-accent: #ffffff;
+  --ring: oklch(0.58 0.13 250);
+
+  /* Reservation and payment status. Always paired with a label and icon, never colour alone. */
+  --held: oklch(0.5 0.11 62);
+  --held-soft: oklch(0.955 0.045 80);
+  --confirmed: oklch(0.46 0.1 158);
+  --confirmed-soft: oklch(0.95 0.05 162);
+  --cancelled: oklch(0.47 0.015 262);
+  --cancelled-soft: oklch(0.95 0.006 262);
+  --expired: oklch(0.52 0.17 28);
+  --expired-soft: oklch(0.955 0.04 32);
+  --completed: oklch(0.5 0.07 250);
+  --completed-soft: oklch(0.95 0.025 250);
+
+  --sh-sm: 0 1px 2px rgba(24, 30, 54, 0.06), 0 1px 3px rgba(24, 30, 54, 0.05);
+  --sh-md: 0 6px 20px -6px rgba(24, 30, 54, 0.16);
+  --sh-lg: 0 20px 48px -12px rgba(24, 30, 54, 0.24);
+}
+
+/* The dark palette is authored, not derived by inverting the light one. */
+[data-theme='dark'] {
+  --bg: oklch(0.19 0.016 262);
+  --surface: oklch(0.235 0.018 262);
+  --surface-2: oklch(0.275 0.02 262);
+  --surface-3: oklch(0.32 0.022 262);
+  --border: oklch(0.33 0.02 262);
+  --border-strong: oklch(0.42 0.024 262);
+  --text: oklch(0.95 0.006 250);
+  --text-muted: oklch(0.73 0.016 255);
+  --text-faint: oklch(0.6 0.016 255);
+  --accent: oklch(0.72 0.12 250);
+  --accent-hover: oklch(0.79 0.12 250);
+  --accent-soft: oklch(0.34 0.06 250);
+  --accent-2: oklch(0.76 0.09 205);
+  --accent-2-soft: oklch(0.34 0.05 205);
+  --on-accent: oklch(0.17 0.02 262);
+  --ring: oklch(0.74 0.12 250);
+
+  --held: oklch(0.82 0.12 82);
+  --held-soft: oklch(0.33 0.06 72);
+  --confirmed: oklch(0.8 0.13 162);
+  --confirmed-soft: oklch(0.32 0.06 160);
+  --cancelled: oklch(0.74 0.015 262);
+  --cancelled-soft: oklch(0.31 0.012 262);
+  --expired: oklch(0.78 0.14 33);
+  --expired-soft: oklch(0.33 0.07 30);
+  --completed: oklch(0.79 0.08 250);
+  --completed-soft: oklch(0.33 0.045 250);
+
+  --sh-sm: 0 1px 2px rgba(0, 0, 0, 0.4);
+  --sh-md: 0 8px 24px -8px rgba(0, 0, 0, 0.55);
+  --sh-lg: 0 24px 56px -16px rgba(0, 0, 0, 0.65);
+}
+
+/*
+ * Exposes the tokens to Tailwind as utilities: `bg-surface`, `text-ink`, `border-line`, and so on.
+ *
+ * `inline` matters here. Without it Tailwind bakes the resolved value into each utility, and the
+ * dark theme would never take effect at runtime; with it, utilities compile to `var(--token)` and
+ * follow whatever `data-theme` is currently set.
+ *
+ * Names are Tailwind-shaped where the design's own name would read badly as a class — the design's
+ * `--text` becomes `--color-ink` so the utility is `text-ink` rather than `text-text`.
+ */
+@theme inline {
+  --color-canvas: var(--bg);
+  --color-surface: var(--surface);
+  --color-surface-2: var(--surface-2);
+  --color-surface-3: var(--surface-3);
+  --color-line: var(--border);
+  --color-line-strong: var(--border-strong);
+  --color-ink: var(--text);
+  --color-ink-muted: var(--text-muted);
+  --color-ink-faint: var(--text-faint);
+  --color-accent: var(--accent);
+  --color-accent-hover: var(--accent-hover);
+  --color-accent-soft: var(--accent-soft);
+  --color-accent2: var(--accent-2);
+  --color-accent2-soft: var(--accent-2-soft);
+  --color-on-accent: var(--on-accent);
+  --color-ring: var(--ring);
+
+  --color-held: var(--held);
+  --color-held-soft: var(--held-soft);
+  --color-confirmed: var(--confirmed);
+  --color-confirmed-soft: var(--confirmed-soft);
+  --color-cancelled: var(--cancelled);
+  --color-cancelled-soft: var(--cancelled-soft);
+  --color-expired: var(--expired);
+  --color-expired-soft: var(--expired-soft);
+  --color-completed: var(--completed);
+  --color-completed-soft: var(--completed-soft);
+
+  --shadow-sm: var(--sh-sm);
+  --shadow-md: var(--sh-md);
+  --shadow-lg: var(--sh-lg);
+
+  --font-sans: 'Plus Jakarta Sans', system-ui, sans-serif;
+  --font-mono: 'Spline Sans Mono', ui-monospace, monospace;
+
+  --animate-pulse-dot: omPulse 1.4s ease-in-out infinite;
+  --animate-spin-slow: omSpin 1s linear infinite;
+  --animate-pop: omPop 0.45s cubic-bezier(0.2, 0.9, 0.3, 1.2) both;
+  --animate-rise: omRise 0.35s ease both;
+  --animate-shimmer: omShimmer 1.4s linear infinite;
+}
+
+@keyframes omPulse {
+  0%,
+  100% {
+    opacity: 0.35;
+    transform: scale(0.75);
+  }
+  50% {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+@keyframes omSpin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+@keyframes omPop {
+  0% {
+    transform: scale(0.5);
+    opacity: 0;
+  }
+  55% {
+    transform: scale(1.12);
+  }
+  100% {
+    transform: scale(1);
+    opacity: 1;
+  }
+}
+@keyframes omRise {
+  0% {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  100% {
+    opacity: 1;
+    transform: none;
+  }
+}
+@keyframes omShimmer {
+  0% {
+    background-position: -450px 0;
+  }
+  100% {
+    background-position: 450px 0;
+  }
+}
+
+@layer base {
+  body {
+    margin: 0;
+    background-color: var(--bg);
+    color: var(--text);
+    font-family: var(--font-sans);
+    font-size: 15px;
+    line-height: 1.5;
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
+    transition:
+      background-color 0.28s ease,
+      color 0.28s ease;
+  }
+
+  /* A visible focus ring is a requirement, not a default to be reset away. */
+  :focus-visible {
+    outline: 2.5px solid var(--ring);
+    outline-offset: 2px;
+  }
+
+  ::selection {
+    background: var(--accent-soft);
+    color: var(--text);
+  }
+
+  /* Respect a user who has asked the interface to stop moving. */
+  @media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+      animation-duration: 0.01ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 0.01ms !important;
+    }
+  }
+}
