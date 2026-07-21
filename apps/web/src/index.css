@@ -178,6 +178,165 @@
   }
 }
 
+/*
+ * Calendar theme.
+ *
+ * react-day-picker ships defaults that hard-code `blue` for the accent and a near-white `#f0f0ff`
+ * for the selected range — invisible on a dark surface and unrelated to the design system. Every
+ * colour it uses is remapped onto tokens here.
+ *
+ * Scoped under a class rather than overriding `.rdp-*` globally, so these rules win on specificity
+ * regardless of the order the bundler happens to emit the two stylesheets in.
+ */
+.om-calendar {
+  --rdp-accent-color: var(--accent);
+  --rdp-accent-background-color: var(--accent-soft);
+  --rdp-range_middle-background-color: transparent;
+  --rdp-range_middle-color: var(--text);
+  --rdp-range_start-color: var(--on-accent);
+  --rdp-range_end-color: var(--on-accent);
+  --rdp-range_start-date-background-color: var(--accent);
+  --rdp-range_end-date-background-color: var(--accent);
+  --rdp-today-color: var(--accent);
+
+  /* The gradient halves the library paints on the range ends are replaced by solid fills below. */
+  --rdp-range_start-background: transparent;
+  --rdp-range_end-background: transparent;
+
+  /* Squared-off cells with a soft radius, matching the design rather than the library's circles. */
+  --rdp-day-height: 42px;
+  --rdp-day-width: 42px;
+  --rdp-day_button-height: 38px;
+  --rdp-day_button-width: 38px;
+  --rdp-day_button-border-radius: 11px;
+  --rdp-day_button-border: 1px solid transparent;
+  --rdp-selected-border: none;
+
+  --rdp-nav-height: 2.5rem;
+  --rdp-disabled-opacity: 0.3;
+  --rdp-outside-opacity: 0.35;
+  --rdp-weekday-opacity: 1;
+  --rdp-months-gap: 1.75rem;
+
+  color: var(--text);
+  font-family: var(--font-sans);
+}
+
+/*
+ * Range colours, set explicitly rather than through the library's scheme.
+ *
+ * Its defaults paint the range in three different layers — a half-transparent gradient on the start
+ * and end cells, a flat fill on the middle, and a separate text colour for each — which is fragile to
+ * override piecemeal and left the dark theme unreadable.
+ *
+ * The middle fill is mixed against the *surface* rather than being a fixed tint, so it always lands
+ * close to the page's own luminance: subtle on a light background, subtle on a dark one, with body
+ * text staying legible on top either way.
+ */
+.om-calendar .rdp-range_start,
+.om-calendar .rdp-range_end,
+.om-calendar .rdp-range_middle {
+  background: color-mix(in oklab, var(--accent) 16%, var(--surface));
+}
+
+/* Square off the inner edges so a range reads as one continuous bar. */
+.om-calendar .rdp-range_start {
+  border-radius: 11px 0 0 11px;
+}
+.om-calendar .rdp-range_end {
+  border-radius: 0 11px 11px 0;
+}
+.om-calendar .rdp-range_start.rdp-range_end {
+  border-radius: 11px;
+}
+
+/* The two ends are the actual choice, so they carry the solid accent. */
+.om-calendar .rdp-range_start .rdp-day_button,
+.om-calendar .rdp-range_end .rdp-day_button {
+  background-color: var(--accent);
+  color: var(--on-accent);
+  font-weight: 700;
+}
+
+/* Nights between the ends stay quiet, with ordinary body text on the soft fill. */
+.om-calendar .rdp-range_middle .rdp-day_button {
+  background-color: transparent;
+  color: var(--text);
+  font-weight: 600;
+}
+
+/* A single selected day, before the second end has been picked. */
+.om-calendar .rdp-selected:not(.rdp-range_middle) .rdp-day_button {
+  background-color: var(--accent);
+  color: var(--on-accent);
+}
+
+/* The library bumps selected days to `large`, which makes the grid jump as a range is chosen. */
+.om-calendar .rdp-selected {
+  font-size: inherit;
+}
+
+.om-calendar .rdp-caption_label {
+  font-size: 15px;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+}
+
+.om-calendar .rdp-weekday {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+  color: var(--text-faint);
+}
+
+.om-calendar .rdp-day_button {
+  font-size: 13.5px;
+  font-weight: 600;
+  transition:
+    background-color 0.14s ease,
+    border-color 0.14s ease;
+}
+
+.om-calendar .rdp-day:not(.rdp-disabled, .rdp-selected) .rdp-day_button:hover {
+  background: var(--surface-2);
+  border-color: var(--border-strong);
+}
+
+/* Today is outlined rather than filled, so it never reads as already selected. */
+.om-calendar .rdp-today:not(.rdp-selected) .rdp-day_button {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+/* A date in the past is struck through as well as dimmed — opacity alone is not a strong signal. */
+.om-calendar .rdp-disabled .rdp-day_button {
+  text-decoration: line-through;
+  cursor: not-allowed;
+}
+
+/* The chevrons inherit a fill that vanishes against a dark surface unless it is set from a token. */
+.om-calendar .rdp-chevron {
+  fill: var(--text-muted);
+}
+
+.om-calendar .rdp-button_previous,
+.om-calendar .rdp-button_next {
+  border-radius: 10px;
+  border: 1px solid var(--border);
+  background: var(--surface);
+}
+
+.om-calendar .rdp-button_previous:hover:not(:disabled),
+.om-calendar .rdp-button_next:hover:not(:disabled) {
+  background: var(--surface-2);
+}
+
+.om-calendar .rdp-button_previous:hover:not(:disabled) .rdp-chevron,
+.om-calendar .rdp-button_next:hover:not(:disabled) .rdp-chevron {
+  fill: var(--text);
+}
+
 @layer base {
   body {
     margin: 0;
