@@ -2,6 +2,7 @@ import { Injectable } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import ms from 'ms';
 import { AppException } from 'src/common/errors/app.exception';
+import { ListingsService } from 'src/listings/listings.service';
 import { PrismaService } from 'src/prisma/prisma.service';
 import { CreateReservationDto } from './dto/create-reservation.dto';
 import { ReservationResponseDto } from './dto/reservation-response.dto';
@@ -81,6 +82,7 @@ export class BookingService {
     private readonly prisma: PrismaService,
     config: ConfigService,
     @InjectQueue(REFUND_QUEUE) private readonly refundQueue: Queue,
+    private readonly listings: ListingsService,
   ) {
     // Parse the human-friendly HOLD_TTL (e.g. "15m") once at startup; getOrThrow fails fast if unset.
     this.holdTtlMs = ms(
@@ -182,6 +184,26 @@ export class BookingService {
         throw new AppException('RESERVATION_SLOT_TAKEN');
       throw err;
     }
+  }
+
+  /**
+   * Every reservation made against the host's own listings — the "bookings received" view.
+   *
+   * Which listings belong to the host is Listings' knowledge, not Booking's, so it is asked for
+   * through that module's service rather than by querying its tables. A host with no listings gets an
+   * empty list without a database round trip.
+   *
+   * @remarks Scoped by ownership, so a host can only ever see bookings on properties they published.
+   */
+  async listReceivedBy(hostId: string): Promise<ReservationResponseDto[]> {
+    const listings = await this.listings.listOwnedBy(hostId);
+    if (listings.length === 0) return [];
+
+    return this.prisma.reservation.findMany({
+      where: { listingId: { in: listings.map((listing) => listing.id) } },
+      orderBy: { createdAt: 'desc' },
+      select: RESERVATION_SELECT,
+    });
   }
 
   /** Every reservation the guest owns, newest first — their "my trips" view. */

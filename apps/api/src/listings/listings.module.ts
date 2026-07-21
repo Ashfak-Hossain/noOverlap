@@ -11,5 +11,9 @@ import { ListingsService } from './listings.service';
 @Module({
   controllers: [ListingsController],
   providers: [ListingsService],
+  // Exported as this context's published surface. Booking needs to know which listings a host owns
+  // in order to answer "which bookings are mine?", and asking this service is how it does that —
+  // never by querying the listings tables itself.
+  exports: [ListingsService],
 })
 export class ListingsModule {}

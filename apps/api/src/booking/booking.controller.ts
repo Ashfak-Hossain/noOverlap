@@ -16,6 +16,7 @@ import {
   ApiOperation,
   ApiTags,
 } from '@nestjs/swagger';
+import { Role } from '@no-overlap/db';
 import { Auth } from 'src/identity/decorators/auth.decorator';
 import { CurrentUser } from 'src/identity/decorators/current-user.decorator';
 import type { AuthUser } from 'src/identity/types/jwt-payload';
@@ -57,6 +58,20 @@ export class BookingController {
   @ApiOkResponse({ type: ReservationResponseDto, isArray: true })
   listMine(@CurrentUser() user: AuthUser): Promise<ReservationResponseDto[]> {
     return this.booking.listOwnedBy(user.userId);
+  }
+
+  // Declared before `:id` for the same reason as `mine`: otherwise the UUID pipe captures the literal
+  // path segment and rejects it.
+  @Get('received')
+  @Auth(Role.HOST)
+  @ApiOperation({
+    summary: 'Reservations made against the host’s own listings',
+  })
+  @ApiOkResponse({ type: ReservationResponseDto, isArray: true })
+  listReceived(
+    @CurrentUser() user: AuthUser,
+  ): Promise<ReservationResponseDto[]> {
+    return this.booking.listReceivedBy(user.userId);
   }
 
   @Get(':id')
