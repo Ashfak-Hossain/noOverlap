@@ -8,6 +8,8 @@ way" of noOverlap.
   winner, enforced by the database rather than by application code.
 - [booking-lifecycle.md](booking-lifecycle.md) — the reservation as an explicit state machine: holds,
   confirmation, compensation, expiry, and why every transition is safe to repeat.
+- [async-seam.md](async-seam.md) — how the intent to charge crosses a process boundary without ever
+  being lost or acted on twice: the outbox, the relay, idempotency, retries, and compensation.
 - [authentication.md](authentication.md) — password hashing, stateless access tokens, and refresh
   tokens that can be revoked the moment they are misused.
 - [access-control.md](access-control.md) — the three checks behind every protected action: are you

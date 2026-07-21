@@ -49,8 +49,10 @@ flowchart LR
 The monolith holds the request-path logic, where a single database transaction keeps things simple and
 correct. The worker owns the one job that must not run inside an HTTP request or a database
 transaction: talking to a payment provider. A transactional outbox connects the two so an intent to
-charge is never lost, even if a process dies at the wrong moment. The full reasoning is in
-[docs/architecture/](docs/architecture/).
+charge is never lost, even if a process dies at the wrong moment — and because delivery is
+at-least-once, every step across that boundary is built to be safe to repeat. The full reasoning is in
+[docs/architecture/](docs/architecture/), and the seam itself in
+[docs/concepts/async-seam.md](docs/concepts/async-seam.md).
 
 ## How a booking works
 
@@ -110,6 +112,8 @@ The full documentation lives in [docs/](docs/).
 
 ## Status
 
-The backend core is built and tested: identity and access control, listings, and the full booking
-lifecycle with the concurrency guarantee. The payment worker, the web client, live availability, and
+The backend is built and tested: identity and access control, listings, the full booking lifecycle
+with the concurrency guarantee, and the asynchronous payment seam — a transactional outbox, a polling
+relay, and a separate worker that charges idempotently, retries transient failures, dead-letters
+poison messages, and compensates with refunds. The web client, live availability, tracing, and
 deployment are on the roadmap. The documentation grows alongside the code.

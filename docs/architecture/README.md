@@ -116,9 +116,22 @@ booking service writes a row to an outbox table describing the charge to perform
 share one transaction, they commit together or not at all: there is no state where the reservation
 exists but the intent to charge was lost, and none where a charge was queued for a booking that rolled
 back. A relay reads unpublished outbox rows and pushes them onto the queue; the worker consumes them,
-charges the provider with an idempotency key, and writes the result back. Delivery is at-least-once, and
-idempotency is what makes that safe. This part of the system is being built; the decision behind it is
-recorded in [decisions/0004-transactional-outbox.md](decisions/0004-transactional-outbox.md).
+charges the provider with an idempotency key, and publishes the result onto a second queue, which the
+API consumes to move the reservation to `CONFIRMED` or `CANCELLED`.
+
+Delivery is at-least-once, and idempotency is what makes that safe. Two layers protect the money: a
+unique idempotency key on the payments table prevents a duplicate payment record, and the same key is
+passed to the provider, so a crash between charging and recording the result cannot take the money a
+second time. Transient provider faults retry with exponential backoff, a declined card compensates by
+releasing the hold, and a job that exhausts its retries moves to a dead-letter queue rather than looping
+or disappearing. Compensation runs the same path in reverse: releasing a paid booking asks the worker to
+refund it, keyed by the charge it reverses.
+
+The mechanism, and the failure cases that shaped it, are covered in
+[../concepts/async-seam.md](../concepts/async-seam.md). The decisions behind it are recorded in
+[decisions/0004-transactional-outbox.md](decisions/0004-transactional-outbox.md),
+[decisions/0005-bullmq-worker-transport.md](decisions/0005-bullmq-worker-transport.md), and
+[decisions/0007-polling-relay.md](decisions/0007-polling-relay.md).
 
 ## Data model
 
@@ -130,7 +143,10 @@ serialized to a client by accident. The vocabulary is collected in [../glossary.
 
 ## Observability and deployment
 
-Structured logs carry a correlation id from the HTTP request through the saga and across the queue into
-the worker, so a single booking can be followed end to end. Traces span the asynchronous boundary, which
-is where a picture explains more than prose. The system deploys as a set of containers: the API, the
-worker, PostgreSQL, and Redis. These pieces are on the roadmap and will be documented as they land.
+Messages crossing the queue carry a trace-context field so a booking can be followed from the HTTP
+request into the worker as one trace rather than two unrelated fragments. The field is part of the
+message contract already, reserved deliberately so that instrumenting tracing is an additive change
+rather than a breaking one to a schema both processes validate; the reasoning is in
+[decisions/0008-trace-context-propagation.md](decisions/0008-trace-context-propagation.md). Wiring it to
+a tracing backend, and the deployment topology (the API, the worker, PostgreSQL, and Redis as a set of
+containers), are on the roadmap and will be documented as they land.

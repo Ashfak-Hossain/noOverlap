@@ -83,11 +83,13 @@ Confirming an already-confirmed reservation returns the current state and does n
 an already-cancelled one does the same. These operations are idempotent by design: repeating them has the
 same effect as doing them once.
 
-This looks like a nicety until payment becomes asynchronous. A worker consuming a queue receives each
-message at-least-once, which means sometimes twice. If confirming a booking were not idempotent, a
-redelivered "payment succeeded" message would confirm twice, or worse. Building the transitions to be
-repeatable from the start means the queue can deliver a message again without consequence, which is what
-makes at-least-once delivery safe to rely on.
+This looks like a nicety until payment is asynchronous, which it is: the charge happens in a separate
+process and reports back over a queue. A worker consuming a queue receives each message at-least-once,
+which means sometimes twice. If confirming a booking were not idempotent, a redelivered "payment
+succeeded" message would confirm twice, or worse. Because the transitions were built to be repeatable
+from the start, the queue can deliver a message again without consequence — which is exactly what makes
+at-least-once delivery safe to rely on. The seam that depends on it is described in
+[async-seam.md](async-seam.md).
 
 ## The confirm-versus-expire race
 
