@@ -7,6 +7,7 @@ import { AppService } from 'src/app.service';
 import { HealthModule } from 'src/health/health.module';
 import { validateEnv } from 'src/config/env.schema';
 import { PrismaModule } from 'src/prisma/prisma.module';
+import { RedisModule } from 'src/redis/redis.module';
 import { CommonModule } from 'src/common/common.module';
 import { APP_GUARD } from '@nestjs/core';
 import { ThrottlerModule } from '@nestjs/throttler';
@@ -25,6 +26,7 @@ import { ScheduleModule } from '@nestjs/schedule';
     ScheduleModule.forRoot(),
     CommonModule,
     PrismaModule,
+    RedisModule,
     IdentityModule,
     ListingsModule,
     HealthModule,

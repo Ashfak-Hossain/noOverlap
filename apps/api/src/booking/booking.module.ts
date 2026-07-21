@@ -4,6 +4,7 @@ import { BookingService } from 'src/booking/booking.service';
 import { ReservationExpiryService } from 'src/booking/reservation-expiry.service';
 import { ListingsModule } from 'src/listings/listings.module';
 import { QueueModule } from 'src/queue/queue.module';
+import { RealtimeModule } from 'src/realtime/realtime.module';
 import { OutboxRelayService } from 'src/booking/outbox-relay.service';
 import { PaymentResultProcessor } from 'src/booking/payment-result.processor';
 
@@ -16,7 +17,7 @@ import { PaymentResultProcessor } from 'src/booking/payment-result.processor';
  * id, never by reaching into their tables.
  */
 @Module({
-  imports: [QueueModule, ListingsModule],
+  imports: [QueueModule, ListingsModule, RealtimeModule],
   controllers: [BookingController],
   providers: [
     BookingService,

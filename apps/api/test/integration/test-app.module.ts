@@ -3,6 +3,7 @@ import { ConfigModule } from '@nestjs/config';
 import { validateEnv } from '../../src/config/env.schema';
 import { CommonModule } from '../../src/common/common.module';
 import { PrismaModule } from '../../src/prisma/prisma.module';
+import { RedisModule } from '../../src/redis/redis.module';
 import { IdentityModule } from '../../src/identity/identity.module';
 import { ListingsModule } from '../../src/listings/listings.module';
 import { BookingModule } from '../../src/booking/booking.module';
@@ -23,6 +24,10 @@ import { BookingModule } from '../../src/booking/booking.module';
     ConfigModule.forRoot({ isGlobal: true, validate: validateEnv }),
     CommonModule,
     PrismaModule,
+    // Registered explicitly even though it is `@Global()`: global only means "visible everywhere once
+    // registered", not "registered automatically". The realtime gateway that Booking now depends on
+    // needs the shared client for its per-listing sequence.
+    RedisModule,
     IdentityModule,
     ListingsModule,
     BookingModule,

@@ -2,7 +2,7 @@ import { Controller, Get, HttpStatus, Inject, Res } from '@nestjs/common';
 import type { Response } from 'express';
 import type Redis from 'ioredis';
 import { PrismaService } from '../prisma/prisma.service';
-import { REDIS_CLIENT } from './redis.provider';
+import { REDIS_CLIENT } from '../redis/redis.provider';
 import { SkipThrottle } from '@nestjs/throttler';
 
 type DepStatus = 'up' | 'down';

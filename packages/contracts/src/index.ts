@@ -47,6 +47,37 @@ export const bookingHeldSchema = z.object({
 });
 export type BookingHeld = z.infer<typeof bookingHeldSchema>;
 
+/**
+ * A reservation's status changed, so the dates it occupies may have.
+ *
+ * Pushed to clients watching the listing. Unlike the queue messages above, this is **best-effort**:
+ * it is emitted directly rather than through the outbox, because a notification that can be recovered
+ * by re-reading needs no durability guarantee.
+ *
+ * `seq` increases per listing and is what makes that acceptable — a client receiving 7 after 5 knows
+ * it missed one and can re-read, so correctness rests on detecting gaps rather than on delivery.
+ */
+export const RESERVATION_CHANGED = 'reservation.changed' as const;
+
+export const reservationChangedSchema = z.object({
+  type: z.literal(RESERVATION_CHANGED),
+  version: z.literal(1),
+  listingId: z.uuid(),
+  reservationId: z.uuid(),
+  status: z.enum(['HELD', 'CONFIRMED', 'CANCELLED', 'EXPIRED', 'COMPLETED']),
+  /** Monotonic per listing. Compare against the last seen value to spot a missed event. */
+  seq: z.number().int().positive(),
+});
+export type ReservationChanged = z.infer<typeof reservationChangedSchema>;
+
+/** The reservation statuses a change event can report. */
+export type ReservationStatusName = ReservationChanged['status'];
+
+/** Socket.IO room a client joins to receive changes for one listing. */
+export function listingRoom(listingId: string): string {
+  return `listing:${listingId}`;
+}
+
 /** BullMQ queue the relay publishes charge jobs onto; the worker consumes it. */
 export const CHARGE_QUEUE = 'booking.charge' as const;
 
