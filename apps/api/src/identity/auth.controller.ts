@@ -33,7 +33,7 @@ import type { AuthUser } from './types/jwt-payload';
 import { MeResponseDto } from './dto/me-response.dto';
 import { Throttle } from '@nestjs/throttler';
 
-/** Cookie carrying the refresh token. Path-scoped to /auth so it rides only on refresh/logout. */
+/** Cookie carrying the refresh token. Never readable by scripts; see {@link AuthController.setRefreshCookie}. */
 const REFRESH_COOKIE = 'refresh_token';
 
 /**
@@ -136,7 +136,14 @@ export class AuthController {
       httpOnly: true,
       secure: this.config.getOrThrow<string>('NODE_ENV') === 'production',
       sameSite: 'lax',
-      path: '/auth',
+      // Root path, not '/auth'. The browser matches a cookie's path against the URL it is about to
+      // request, which is the API's *public* path — and that is only '/auth/...' when the API is
+      // served from the origin root. Behind any prefix (the dev proxy at '/api', or a reverse proxy
+      // in production) a '/auth'-scoped cookie is simply never sent, so every refresh fails and the
+      // session dies on page reload. Scoping it more tightly was defence in depth rather than a
+      // control: the cookie is HttpOnly and SameSite=Lax either way, so it stays unreadable by
+      // scripts and is not sent cross-site.
+      path: '/',
       expires: refresh.expiresAt,
     });
   }
