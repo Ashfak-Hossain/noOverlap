@@ -1,6 +1,13 @@
 packages:
   - 'apps/*'
   - 'packages/*'
+# The API depends on @nestjs/websockets, which is an optional peer of @nestjs/core, so the API and the
+# worker resolve @nestjs/core to two distinct instances of the same version. Deduplication treats those
+# as interchangeable and collapses their shared dependents onto one of them: @nestjs/bullmq ended up
+# bound to the API's copy, so the worker's container registered one ModuleRef class while the explorer
+# asked for another, and dependency injection failed with nothing in the source to explain it. Each app
+# now resolves its own consistent tree.
+dedupePeerDependents: false
 allowBuilds:
   '@prisma/engines': true
   '@scarf/scarf': false

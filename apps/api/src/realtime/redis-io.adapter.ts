@@ -29,8 +29,12 @@ export class RedisIoAdapter extends IoAdapter {
   }
 
   async connect(): Promise<void> {
-    const pubClient = this.redis.duplicate();
-    const subClient = this.redis.duplicate();
+    // `lazyConnect` is overridden because a duplicate otherwise inherits the shared client's eager
+    // connect and is already connecting by the time it is returned, which makes the explicit connect
+    // below throw. Connecting on demand keeps that await meaningful: it resolves once both clients are
+    // actually ready, so the adapter is in place before the first socket arrives.
+    const pubClient = this.redis.duplicate({ lazyConnect: true });
+    const subClient = this.redis.duplicate({ lazyConnect: true });
     await Promise.all([pubClient.connect(), subClient.connect()]);
     this.adapterConstructor = createAdapter(pubClient, subClient);
   }
