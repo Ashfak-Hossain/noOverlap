@@ -111,6 +111,26 @@ not used for booking, where losing a slot is an ordinary outcome rather than a r
 **Design token** — a named value for a colour, size, or shadow, defined once and referenced
 everywhere, so both themes and any restyle are a change in one place.
 
+## Realtime
+
+**Room** — a named group of sockets. A client joins the room for each listing it is viewing, so a
+change reaches the people looking at that property and nobody else.
+
+**Fan-out** — delivering one event to every instance's sockets, not just those connected to the
+process that raised it. Carried over Redis, without which the feature works in development and
+half-fails behind a load balancer.
+
+**Best-effort delivery** — no guarantee a message arrives. Chosen deliberately for change
+notifications, where a loss costs a refresh rather than a booking. See
+[concepts/realtime-updates.md](concepts/realtime-updates.md).
+
+**Sequence number** — a value that increases per listing on every event, so a client receiving 43
+after 41 knows one never arrived. Allocated in Redis, because a per-process counter would restart on
+deploy and repeat numbers across instances.
+
+**Gap detection** — noticing a missed event from a break in those numbers, and re-reading instead of
+continuing from stale data. What makes best-effort delivery safe.
+
 ## Cross-cutting
 
 **RFC 7807 / problem+json** — the standard error response shape (`type`, `title`, `status`, `detail`,

@@ -13,6 +13,8 @@ way" of noOverlap.
 - [showing-async-work.md](showing-async-work.md) — what that seam looks like to a person waiting: a
   hold with a deadline, a poll that stops itself, and why a booking is never shown as confirmed
   before it is.
+- [realtime-updates.md](realtime-updates.md) — how a booking in one browser reaches another, and why
+  the events are treated as prompts to re-read rather than as data to trust.
 - [authentication.md](authentication.md) — password hashing, stateless access tokens, and refresh
   tokens that can be revoked the moment they are misused.
 - [access-control.md](access-control.md) — the three checks behind every protected action: are you

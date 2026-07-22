@@ -156,13 +156,39 @@ altogether. That side of the seam is described in
 [../concepts/showing-async-work.md](../concepts/showing-async-work.md), and the stack choices in
 [decisions/0014-frontend-stack.md](decisions/0014-frontend-stack.md).
 
+## The realtime seam
+
+A second seam runs the other way. When a reservation changes, a gateway announces it to the clients
+watching that listing, over a socket, through Redis so the announcement reaches sockets connected to
+any instance rather than only the one that handled the request.
+
+It is deliberately unlike the queue seam next to it. Those messages are durable because losing a
+charge is unacceptable; these are emitted directly and may be lost, because losing a notification
+costs a refresh. What makes that safe is that an event carries no booking detail — only that something
+on a listing changed, plus a number that increases per listing. A client treats it as a prompt to
+re-read from the API, and a client that spots a gap in those numbers, or that reconnects, re-reads
+rather than trusting what it holds.
+
+Polling did not go away. It remains the guarantee that a screen settles; the socket only shortens the
+wait. The full reasoning is in [../concepts/realtime-updates.md](../concepts/realtime-updates.md) and
+[decisions/0016-realtime-transport.md](decisions/0016-realtime-transport.md).
+
 ## Data model
 
-The load-bearing tables are `users`, `listings`, `availability_blocks`, `reservations`, `payments`, and
-`outbox`. A few conventions run throughout: money is stored as integer cents, never a floating-point
+The load-bearing tables are `users`, `listings`, `availability_blocks`, `reservations`, `payments`,
+`reviews`, and `outbox`. A few conventions run throughout: money is stored as integer cents, never a floating-point
 value, so arithmetic is exact; every timestamp is stored with its time zone; and response objects are
 projections that select only the fields meant to leave the API, so an internal column cannot be
-serialized to a client by accident. The vocabulary is collected in [../glossary.md](../glossary.md).
+serialized to a client by accident.
+
+Two foreign keys carry a rule rather than just a reference. A review points at the reservation that
+earned it, uniquely, so one stay yields at most one review without the application having to check.
+And reservations restrict deletion of their listing instead of cascading from it, so a host removing a
+property cannot destroy the bookings and payments recorded against it — withdrawing a listing from
+sale is a separate operation, described in
+[decisions/0019-listings-are-deactivated-not-deleted.md](decisions/0019-listings-are-deactivated-not-deleted.md).
+
+The vocabulary is collected in [../glossary.md](../glossary.md).
 
 ## Observability and deployment
 

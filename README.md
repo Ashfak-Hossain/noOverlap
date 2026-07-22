@@ -117,6 +117,12 @@ with the concurrency guarantee, and the asynchronous payment seam — a transact
 relay, and a separate worker that charges idempotently, retries transient failures, dead-letters
 poison messages, and compensates with refunds.
 
-The web client is built on top of it: search, listing detail, the booking flow with a live hold
-countdown that resolves itself when payment settles, trips, and a host dashboard. Live availability,
-tracing, and deployment are on the roadmap. The documentation grows alongside the code.
+Reservation changes are pushed to whoever is watching a listing, so a booking made in one browser
+reaches another without a refresh. Delivery is best-effort by design: each event carries a
+per-listing sequence number, and a client that spots a gap or reconnects re-reads from the API rather
+than trusting what it holds. A stay that has ended can be reviewed once, by the guest who took it,
+and listings show real ratings rather than placeholder ones.
+
+The web client is built on top of all of it: search, listing detail, the booking flow with a live hold
+countdown that resolves itself when payment settles, trips, reviews, and a host dashboard. Tracing,
+load numbers, and deployment are on the roadmap. The documentation grows alongside the code.

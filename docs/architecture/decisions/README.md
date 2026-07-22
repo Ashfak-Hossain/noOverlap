@@ -25,6 +25,10 @@ readable long after the choice was made.
 | [0013](0013-saga-state-machine-first.md)    | The booking saga as a state machine first              | Accepted |
 | [0014](0014-frontend-stack.md)              | Tailwind and React Router for the web client           | Accepted |
 | [0015](0015-client-token-handling.md)       | The access token lives in memory                       | Accepted |
+| [0016](0016-realtime-transport.md)          | Socket.IO with a Redis adapter for realtime            | Accepted |
+| [0017](0017-completion-sweep.md)            | A sweep completes stays that have ended                | Accepted |
+| [0018](0018-reviews-carry-their-listing.md) | Reviews carry their listing                            | Accepted |
+| [0019](0019-listings-are-deactivated-not-deleted.md) | A booked listing is deactivated, never deleted | Accepted |
 
 Numbers are assigned when a decision is taken and never reused, so the sequence reflects the order the
 questions actually arose. Records for parts of the system not yet built are written when that work
