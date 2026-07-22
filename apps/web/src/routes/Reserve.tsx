@@ -11,6 +11,7 @@ import { ApiError } from '../lib/api/problem';
 import { createHold, getReservation, reservationKeys } from '../lib/api/reservations';
 import { isSettled, type Reservation } from '../lib/api/types';
 import { formatDate, formatMoney, nightsBetween } from '../lib/format';
+import { useListingUpdates } from '../lib/realtime/use-listing-updates';
 
 /**
  * Reserving a stay.
@@ -364,6 +365,21 @@ export function Component() {
       const current = query.state.data;
       return current && !isSettled(current.status) ? POLL_MS : false;
     },
+  });
+
+  /**
+   * The fast path to the same answer.
+   *
+   * The poll above is still what guarantees this screen settles; this only shortens the wait. Realtime
+   * delivery is best-effort by design — an event can be lost and nothing will resend it — so treating
+   * it as the mechanism rather than an accelerator would leave a guest staring at "held" indefinitely
+   * whenever one went missing. Both paths do exactly the same thing: re-read the reservation.
+   */
+  useListingUpdates(listingId ? [listingId] : [], () => {
+    if (!reservationId) return;
+    void queryClient.invalidateQueries({
+      queryKey: reservationKeys.detail(reservationId),
+    });
   });
 
   // Arriving without dates means the flow was entered out of order; send them back to choose.

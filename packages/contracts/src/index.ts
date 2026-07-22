@@ -8,6 +8,10 @@
  * have sat in Redis across a release — so the consumer parses it instead of casting.
  */
 import { z } from 'zod';
+import {
+  RESERVATION_CHANGED,
+  type ReservationChanged,
+} from './realtime.js';
 
 /**
  * W3C trace context, carried alongside the event so a booking can be followed end to end
@@ -48,35 +52,36 @@ export const bookingHeldSchema = z.object({
 export type BookingHeld = z.infer<typeof bookingHeldSchema>;
 
 /**
- * A reservation's status changed, so the dates it occupies may have.
- *
- * Pushed to clients watching the listing. Unlike the queue messages above, this is **best-effort**:
- * it is emitted directly rather than through the outbox, because a notification that can be recovered
- * by re-reading needs no durability guarantee.
- *
- * `seq` increases per listing and is what makes that acceptable — a client receiving 7 after 5 knows
- * it missed one and can re-read, so correctness rests on detecting gaps rather than on delivery.
+ * The realtime contract is re-exported from a dependency-free module so the browser can import it
+ * without pulling a schema validator into the bundle. See `./realtime` for why that split exists.
  */
-export const RESERVATION_CHANGED = 'reservation.changed' as const;
+export {
+  RESERVATION_CHANGED,
+  isReservationChanged,
+  listingRoom,
+  type ReservationChanged,
+  type ReservationStatusName,
+} from './realtime.js';
 
-export const reservationChangedSchema = z.object({
-  type: z.literal(RESERVATION_CHANGED),
-  version: z.literal(1),
-  listingId: z.uuid(),
-  reservationId: z.uuid(),
-  status: z.enum(['HELD', 'CONFIRMED', 'CANCELLED', 'EXPIRED', 'COMPLETED']),
-  /** Monotonic per listing. Compare against the last seen value to spot a missed event. */
-  seq: z.number().int().positive(),
-});
-export type ReservationChanged = z.infer<typeof reservationChangedSchema>;
-
-/** The reservation statuses a change event can report. */
-export type ReservationStatusName = ReservationChanged['status'];
-
-/** Socket.IO room a client joins to receive changes for one listing. */
-export function listingRoom(listingId: string): string {
-  return `listing:${listingId}`;
-}
+/**
+ * The server's view of {@link ReservationChanged}.
+ *
+ * Annotated with the published interface rather than inferring a type from it: the schema and the
+ * interface are two statements of one contract, and this is what makes a change to the schema that
+ * the interface does not follow fail the build here instead of at a client that can no longer parse
+ * what it is sent.
+ */
+export const reservationChangedSchema: z.ZodType<ReservationChanged> = z.object(
+  {
+    type: z.literal(RESERVATION_CHANGED),
+    version: z.literal(1),
+    listingId: z.uuid(),
+    reservationId: z.uuid(),
+    status: z.enum(['HELD', 'CONFIRMED', 'CANCELLED', 'EXPIRED', 'COMPLETED']),
+    /** Monotonic per listing. Compare against the last seen value to spot a missed event. */
+    seq: z.number().int().positive(),
+  },
+);
 
 /** BullMQ queue the relay publishes charge jobs onto; the worker consumes it. */
 export const CHARGE_QUEUE = 'booking.charge' as const;

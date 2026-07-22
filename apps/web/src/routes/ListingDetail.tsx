@@ -5,8 +5,12 @@ import { Card, EmptyState, Skeleton } from '../components/primitives';
 import { DateRangeField } from '../features/booking/DateRangeField';
 import { useSearchCriteria } from '../features/search/search-params';
 import { getListing, listingKeys } from '../lib/api/listings';
+import { getListingReviews, reviewKeys } from '../lib/api/reviews';
 import { formatDate, formatMoney, nightsBetween } from '../lib/format';
 import { useSession } from '../lib/use-session';
+import { Rating } from '../features/reviews/Rating';
+import { ListingActivity } from '../features/realtime/ListingActivity';
+import type { ListingReviews } from '../lib/api/types';
 
 function Gallery({ city }: { city: string }) {
   const pattern = (colour: string) =>
@@ -36,6 +40,50 @@ function Gallery({ city }: { city: string }) {
   );
 }
 
+/**
+ * What previous guests said.
+ *
+ * A listing with no reviews says so plainly instead of rendering an empty rating. New listings are the
+ * normal case, not a defect, and a blank five stars would read as a score of zero.
+ */
+function Reviews({ data }: { data: ListingReviews }) {
+  return (
+    <div className="mt-8 border-t border-line pt-7.5">
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <h2 className="text-xl font-bold tracking-[-0.01em]">
+          {data.count === 0
+            ? 'Reviews'
+            : `${data.count} ${data.count === 1 ? 'review' : 'reviews'}`}
+        </h2>
+        <Rating value={data.averageRating} count={data.count} size={17} />
+      </div>
+
+      {data.count === 0 ? (
+        <p className="mt-2.5 text-[13.5px] text-ink-muted">
+          No one has stayed here yet — or no one has written about it. Only guests who have completed
+          a stay can leave a review.
+        </p>
+      ) : (
+        <ul className="mt-5 flex flex-col gap-4">
+          {data.reviews.map((review) => (
+            <li key={review.id} className="border-b border-line pb-4 last:border-0 last:pb-0">
+              <div className="flex items-center gap-2.5">
+                <Rating value={review.rating} count={1} size={13} />
+                <span className="text-[12.5px] text-ink-faint">{formatDate(review.createdAt)}</span>
+              </div>
+              {review.body && (
+                <p className="mt-2 text-[14.5px] leading-relaxed text-ink-muted text-pretty">
+                  {review.body}
+                </p>
+              )}
+            </li>
+          ))}
+        </ul>
+      )}
+    </div>
+  );
+}
+
 export function Component() {
   const { id = '' } = useParams();
   const [criteria, update] = useSearchCriteria();
@@ -50,6 +98,14 @@ export function Component() {
   } = useQuery({
     queryKey: listingKeys.detail(id),
     queryFn: () => getListing(id),
+    enabled: Boolean(id),
+  });
+
+  // Public, so this loads for a signed-out visitor too — reviews are what someone reads while deciding
+  // whether to book, which is before they have any reason to have an account.
+  const { data: reviews } = useQuery({
+    queryKey: reviewKeys.forListing(id),
+    queryFn: () => getListingReviews(id),
     enabled: Boolean(id),
   });
 
@@ -98,9 +154,14 @@ export function Component() {
       <h1 className="text-[clamp(26px,3.4vw,36px)] font-extrabold tracking-tight">
         {listing.title}
       </h1>
-      <p className="mt-2 text-[14.5px] text-ink-muted">
-        {listing.city} · up to {listing.maxGuests} guests
-      </p>
+      <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1.5 text-[14.5px] text-ink-muted">
+        <span>
+          {listing.city} · up to {listing.maxGuests} guests
+        </span>
+        {reviews && <Rating value={reviews.averageRating} count={reviews.count} />}
+      </div>
+
+      <ListingActivity listingId={listing.id} />
 
       <Gallery city={listing.city} />
 
@@ -132,6 +193,8 @@ export function Component() {
               onChange={(range) => update(range)}
             />
           </div>
+
+          {reviews && <Reviews data={reviews} />}
         </div>
 
         <aside className="lg:sticky lg:top-22">

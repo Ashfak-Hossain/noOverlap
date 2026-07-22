@@ -17,6 +17,14 @@ export default defineConfig([
     ],
     languageOptions: {
       globals: globals.browser,
+      parserOptions: {
+        projectService: true,
+        // Pinned rather than left to be inferred. Type-aware rules need to know which TypeScript
+        // project a file belongs to, and inference works from the working directory — so running
+        // ESLint from the repository root, as an editor does, finds several candidate projects in the
+        // workspace and refuses to guess. Naming it here makes the result the same wherever it runs.
+        tsconfigRootDir: import.meta.dirname,
+      },
     },
   },
 ]);

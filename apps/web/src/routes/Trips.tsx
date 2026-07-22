@@ -8,6 +8,8 @@ import { getListing, listingKeys } from '../lib/api/listings';
 import { cancelReservation, listMyReservations, reservationKeys } from '../lib/api/reservations';
 import { isSettled, type Listing, type Reservation } from '../lib/api/types';
 import { formatDate, formatMoney, nightsBetween } from '../lib/format';
+import { ReviewForm } from '../features/reviews/ReviewForm';
+import { useListingUpdates } from '../lib/realtime/use-listing-updates';
 
 /** How often the list re-reads itself while any trip is still settling. */
 const POLL_MS = 2000;
@@ -25,12 +27,17 @@ function TripRow({
   onCancel: (id: string) => void;
   cancelling: boolean;
 }) {
+  const [reviewing, setReviewing] = useState(false);
   const nights = nightsBetween(reservation.checkIn, reservation.checkOut);
   // A reservation only reaches CONFIRMED by way of a successful charge, so payment state is knowable
   // there. It is not for a cancelled one — that may have been a decline or a refund, and the API does
   // not distinguish them on this shape — so no payment pill is shown rather than a guessed one.
   const paid = reservation.status === 'CONFIRMED';
   const canCancel = !past && (reservation.status === 'HELD' || reservation.status === 'CONFIRMED');
+  // Offered on exactly the status the server accepts. A stay whose dates have passed but which the
+  // completion sweep has not reached yet is still CONFIRMED, and offering a button that can only be
+  // refused would be worse than waiting for it to become true.
+  const canReview = reservation.status === 'COMPLETED';
 
   return (
     <Card className={['flex flex-wrap items-center gap-4 p-4', past ? 'opacity-90' : ''].join(' ')}>
@@ -74,7 +81,22 @@ function TripRow({
             Cancel
           </Button>
         )}
+        {canReview && !reviewing && (
+          <Button variant="secondary" size="sm" onClick={() => setReviewing(true)}>
+            Leave a review
+          </Button>
+        )}
       </div>
+
+      {reviewing && (
+        <div className="w-full">
+          <ReviewForm
+            reservationId={reservation.id}
+            listingId={reservation.listingId}
+            onDone={() => setReviewing(false)}
+          />
+        </div>
+      )}
     </Card>
   );
 }
@@ -108,6 +130,16 @@ export function Component() {
   const listings = new Map<string, Listing>(
     listingQueries.flatMap((q) => (q.data ? [[q.data.id, q.data]] : [])),
   );
+
+  /**
+   * Live updates for every listing the guest has a trip on.
+   *
+   * A trip settles in another process, so this list has to learn about it without being asked. The
+   * poll above still covers it — realtime here removes the wait, it does not replace the guarantee.
+   */
+  useListingUpdates(listingIds, () => {
+    void queryClient.invalidateQueries({ queryKey: reservationKeys.mine() });
+  });
 
   const cancel = useMutation({
     mutationFn: cancelReservation,

@@ -1,5 +1,6 @@
 import { Link, NavLink, useNavigate } from 'react-router';
 import { useTheme } from '../lib/theme';
+import { ConnectionStatus } from '../features/realtime/ConnectionStatus';
 import { useSession } from '../lib/use-session';
 import type { Role } from '../lib/api/types';
 import { Button } from './Button';
@@ -94,6 +95,7 @@ export function AppHeader() {
         </nav>
 
         <div className="flex-1" />
+        <ConnectionStatus />
         <ThemeToggle />
         {isAuthenticated ? (
           <div className="flex items-center gap-2.5">

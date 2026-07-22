@@ -51,6 +51,27 @@ export interface Reservation {
   createdAt: string;
 }
 
+export interface Review {
+  id: string;
+  reservationId: string;
+  listingId: string;
+  rating: number;
+  body: string | null;
+  createdAt: string;
+}
+
+export interface ListingReviews {
+  /**
+   * Null when nobody has reviewed the listing.
+   *
+   * Not zero, which is a rating a listing can genuinely earn — the server distinguishes the two and
+   * the client has to keep that distinction rather than collapsing it with `?? 0`.
+   */
+  averageRating: number | null;
+  count: number;
+  reviews: Review[];
+}
+
 /**
  * The caller's identity as the API reports it.
  *

@@ -1,9 +1,10 @@
-import { useQueries, useQuery } from '@tanstack/react-query';
+import { useQueries, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Link } from 'react-router';
 import { Button } from '../../components/Button';
 import { Card, EmptyState, Skeleton } from '../../components/primitives';
 import { StatusPill } from '../../components/StatusPill';
-import { getListing, listingKeys } from '../../lib/api/listings';
+import { getListing, listMyListings, listingKeys } from '../../lib/api/listings';
+import { useListingUpdates } from '../../lib/realtime/use-listing-updates';
 import {
   listReceivedReservations,
   reservationKeys,
@@ -56,6 +57,30 @@ export function Component() {
     refetchInterval: (query) =>
       query.state.data?.some((r) => !isSettled(r.status)) ? POLL_MS : false,
   });
+
+  const queryClient = useQueryClient();
+
+  /**
+   * The host's own listings, which is what decides where to listen.
+   *
+   * Deriving the rooms from existing bookings instead would leave a listing nobody has booked
+   * unwatched — and the first booking on it, the one most worth seeing arrive, is exactly the event
+   * that would be missed.
+   */
+  const { data: owned } = useQuery({
+    queryKey: listingKeys.mine(),
+    queryFn: listMyListings,
+    staleTime: 5 * 60_000,
+  });
+
+  useListingUpdates(
+    (owned ?? []).map((listing) => listing.id),
+    () => {
+      void queryClient.invalidateQueries({
+        queryKey: reservationKeys.received(),
+      });
+    },
+  );
 
   const listingIds = [...new Set((reservations ?? []).map((r) => r.listingId))];
   const listingQueries = useQueries({
