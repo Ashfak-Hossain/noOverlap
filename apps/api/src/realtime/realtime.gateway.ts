@@ -20,6 +20,34 @@ import { REDIS_CLIENT } from 'src/redis/redis.provider';
 const seqKey = (listingId: string): string => `listing-seq:${listingId}`;
 
 /**
+ * How long a notification may take before it is abandoned.
+ *
+ * Short, because the caller is a committed booking waiting to answer its client. The exact value
+ * matters far less than the existence of a bound.
+ */
+const PUBLISH_TIMEOUT_MS = 2_000;
+
+/**
+ * Rejects if the work has not finished in time.
+ *
+ * Needed because an unreachable Redis does not fail: the client queues commands while it is offline
+ * and replays them on reconnect, so a command issued during an outage neither resolves nor rejects —
+ * it waits, indefinitely. A caller that awaits one is not handling an error, it is hanging.
+ */
+function withTimeout<T>(work: Promise<T>, ms: number): Promise<T> {
+  let timer: NodeJS.Timeout;
+  return Promise.race([
+    work,
+    new Promise<never>((_, reject) => {
+      timer = setTimeout(
+        () => reject(new Error(`timed out after ${ms}ms`)),
+        ms,
+      );
+    }),
+  ]).finally(() => clearTimeout(timer));
+}
+
+/**
  * Pushes reservation changes to clients watching a listing.
  *
  * Carries notifications, never the change itself: a client treats an event as a prompt to re-read,
@@ -73,6 +101,12 @@ export class RealtimeGateway {
    * Failures are logged and swallowed. A booking has already been committed by the time this runs,
    * and refusing it because a notification could not be sent would trade something durable for
    * something disposable.
+   *
+   * Bounded by a timeout for the same reason, and it is the more important half: swallowing errors
+   * only helps if there is an error. An unreachable Redis queues the command instead of rejecting it,
+   * so without the bound this method would neither fail nor return, and the committed booking behind
+   * it would never answer its client — the guest left watching a spinner while their dates are
+   * genuinely held. A notification that cannot be sent is worth losing; the response is not.
    */
   async publishReservationChanged(
     listingId: string,
@@ -80,7 +114,10 @@ export class RealtimeGateway {
     status: ReservationStatusName,
   ): Promise<void> {
     try {
-      const seq = await this.redis.incr(seqKey(listingId));
+      const seq = await withTimeout(
+        this.redis.incr(seqKey(listingId)),
+        PUBLISH_TIMEOUT_MS,
+      );
       const event: ReservationChanged = {
         type: RESERVATION_CHANGED,
         version: 1,
