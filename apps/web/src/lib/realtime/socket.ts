@@ -38,9 +38,11 @@ export function getSocket(): Socket {
   // Same origin: the dev server proxies the websocket to the API, so no cross-origin arrangement is
   // needed and the browser sends cookies as it would for any other request here.
   socket = io('/realtime', {
-    // The default transport list starts with polling and upgrades. Going straight to the websocket
-    // avoids that round trip, and this app has no environment where polling is the only option.
-    transports: ['websocket'],
+    // Transports are left at the default — polling first, upgrading to a websocket once one is
+    // proven to work. Forcing the websocket saves a round trip and gives up the fallback with it:
+    // where the upgrade cannot be made, and a development proxy is one such place, there is nothing
+    // to fall back to and the client retries a transport that will never connect. Live updates are
+    // an enhancement, so degrading to polling is the right failure.
   });
 
   socket.on('connect', () => setState('connected'));

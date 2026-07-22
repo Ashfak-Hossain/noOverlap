@@ -30,6 +30,17 @@ import { useListingUpdates } from '../lib/realtime/use-listing-updates';
  */
 const POLL_MS = 1500;
 
+/**
+ * How long the hold may sit unanswered before the screen says so.
+ *
+ * Generous, because a slow network is not a failure and interrupting one would be wrong. What this
+ * guards against is the request never resolving at all — a dead API, a connection that hung, or a
+ * result that arrived while nothing was listening for it. "Securing your dates" is the fallthrough
+ * for having neither a reservation nor an error, so without a bound it is also what a permanently
+ * lost request looks like, forever.
+ */
+const STALL_AFTER_MS = 15_000;
+
 function Stage({ children }: { children: React.ReactNode }) {
   return (
     <div className="animate-rise flex flex-col items-center px-10 py-14 text-center">
@@ -49,6 +60,53 @@ function Securing({ dates }: { dates: string }) {
       <p className="max-w-[36ch] text-ink-muted">
         Placing a hold on {dates}. This only takes a moment.
       </p>
+    </Stage>
+  );
+}
+
+/**
+ * The hold was sent and nothing came back.
+ *
+ * Deliberately does not claim the booking failed, because that is not known: the request may have
+ * been lost on the way out, or it may have reached the server and taken the dates. Saying either
+ * would be a guess, so it says what is true and offers the two ways forward — try again, or go and
+ * look at what actually happened.
+ */
+function Stalled({ dates, onRetry }: { dates: string; onRetry: () => void }) {
+  return (
+    <Stage>
+      <span
+        aria-hidden="true"
+        className="flex size-16 items-center justify-center rounded-[18px] bg-held-soft text-held"
+      >
+        <svg
+          width="30"
+          height="30"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="2.3"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+        >
+          <path d="M12 3a9 9 0 1 0 9 9" />
+          <path d="M12 7.5V12l3 1.8" />
+        </svg>
+      </span>
+      <h2 className="mt-5 mb-1.5 text-[23px] font-bold tracking-[-0.01em]">
+        This is taking longer than it should
+      </h2>
+      <p className="max-w-[46ch] text-ink-muted text-pretty">
+        We haven&rsquo;t heard back about {dates}. Your dates may or may not have been held — trying
+        again is safe, and if the first attempt did go through you&rsquo;ll be told the slot is
+        taken.
+      </p>
+      <div className="mt-6 flex gap-2.5">
+        <Button onClick={onRetry}>Try again</Button>
+        <Link to="/trips">
+          <Button variant="secondary">Check my trips</Button>
+        </Link>
+      </div>
     </Stage>
   );
 }
@@ -382,6 +440,34 @@ export function Component() {
     });
   });
 
+  /**
+   * Notices when the hold never came back.
+   *
+   * The request is fired once, and whether it was fired is remembered in a ref while its outcome
+   * lives in the mutation. Those are two different places, and anything that resets one without the
+   * other — a remount that discards the mutation observer while the ref survives — leaves a screen
+   * that will not retry and has no answer to show. The timer turns that into something the guest can
+   * act on instead of a spinner that never stops.
+   */
+  const [stalled, setStalled] = useState(false);
+  useEffect(() => {
+    if (reservation || hold.isError) return;
+    const timer = setTimeout(() => setStalled(true), STALL_AFTER_MS);
+    return () => clearTimeout(timer);
+  }, [reservation, hold.isError]);
+
+  /** Fires the hold again after a stall, replacing the attempt whose answer never arrived. */
+  function retryHold() {
+    if (!criteria.checkIn || !criteria.checkOut) return;
+    setStalled(false);
+    hold.reset();
+    hold.mutate({
+      listingId,
+      checkIn: criteria.checkIn,
+      checkOut: criteria.checkOut,
+    });
+  }
+
   // Arriving without dates means the flow was entered out of order; send them back to choose.
   useEffect(() => {
     if (!criteria.checkIn || !criteria.checkOut) {
@@ -438,6 +524,8 @@ export function Component() {
                   <Button variant="secondary">Back to listing</Button>
                 </Link>
               </Stage>
+            ) : !reservation && stalled ? (
+              <Stalled dates={dates} onRetry={retryHold} />
             ) : !reservation ? (
               <Securing dates={dates} />
             ) : reservation.status === 'HELD' ? (
