@@ -28,6 +28,10 @@ export const ERROR_CATALOG = {
     status: 409,
     title: 'Reservation cannot change to that state',
   },
+  LISTING_HAS_BOOKINGS: {
+    status: 409,
+    title: 'Listing has bookings and cannot be deleted',
+  },
   REVIEW_STAY_NOT_FINISHED: {
     status: 409,
     title: 'Stay has not finished',

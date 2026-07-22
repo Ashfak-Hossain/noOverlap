@@ -410,14 +410,19 @@
           }
         },
         {
-          "name": "Delete listing",
+          "name": "Delete listing (never booked only)",
           "event": [
             {
               "listen": "test",
               "script": {
                 "type": "text/javascript",
                 "exec": [
-                  "pm.test('status is 204', () => pm.response.to.have.status(204));"
+                  "pm.test('deleted, or refused because it has bookings', () =>",
+                  "  pm.expect([204, 409]).to.include(pm.response.code));",
+                  "pm.test('a refusal names the reason', () => {",
+                  "  if (pm.response.code === 409)",
+                  "    pm.expect(pm.response.json().type).to.include('listing-has-bookings');",
+                  "});"
                 ]
               }
             }
@@ -435,7 +440,7 @@
                 "{{listingId}}"
               ]
             },
-            "description": "Delete your own listing. 204 on success."
+            "description": "Only a listing nobody has booked can be deleted. One with reservations is refused with 409 LISTING_HAS_BOOKINGS — the database will not let a booking, its payment, or its review be removed as a side effect of tidying up a listing. To withdraw a booked listing from sale, PATCH it with { \"active\": false } instead: it leaves search and stops taking new bookings, and everything already booked stays as it is."
           }
         },
         {

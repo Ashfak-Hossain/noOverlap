@@ -6,6 +6,7 @@ import { UpdateListingDto } from './dto/update-listing.dto';
 import { ListingResponseDto } from './dto/listing-response.dto';
 import { CreateAvailabilityDto } from './dto/create-availability.dto';
 import { AvailabilityResponseDto } from './dto/availability-response.dto';
+import { isForeignKeyViolation } from './foreign-key-violation';
 
 @Injectable()
 export class ListingsService {
@@ -59,11 +60,33 @@ export class ListingsService {
 
   /**
    * Deletes the caller's own listing.
+   *
+   * Only ever succeeds for a listing nobody has booked. Reservations reference it with a restricting
+   * foreign key, so the database refuses the delete rather than taking the bookings, their payments,
+   * and their reviews down with it — a host removing a property they no longer rent must not be able
+   * to erase a stay a guest paid for.
+   *
+   * Withdrawing a booked listing from sale is a different operation: set `active` to false, which
+   * hides it from search while leaving what happened on it intact.
+   *
    * @throws AppException `NOT_FOUND` / `FORBIDDEN` — see {@link assertOwner}.
+   * @throws AppException `LISTING_HAS_BOOKINGS` when reservations still reference the listing.
    */
   async remove(hostId: string, id: string): Promise<void> {
     await this.assertOwner(id, hostId);
-    await this.prisma.listing.delete({ where: { id } });
+    try {
+      await this.prisma.listing.delete({ where: { id } });
+    } catch (err) {
+      // Translated from the constraint rather than pre-checked with a count: a booking placed between
+      // the check and the delete would slip through, and the database is already deciding this.
+      if (isForeignKeyViolation(err)) {
+        throw new AppException(
+          'LISTING_HAS_BOOKINGS',
+          'This listing has bookings, so it cannot be deleted. Pause it instead to stop taking new ones.',
+        );
+      }
+      throw err;
+    }
   }
 
   /**

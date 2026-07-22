@@ -14,6 +14,7 @@ import {
 import {
   ApiCreatedResponse,
   ApiForbiddenResponse,
+  ApiConflictResponse,
   ApiNoContentResponse,
   ApiNotFoundResponse,
   ApiOkResponse,
@@ -100,10 +101,17 @@ export class ListingsController {
   @Delete(':id')
   @Auth(Role.HOST)
   @HttpCode(HttpStatus.NO_CONTENT)
-  @ApiOperation({ summary: 'Delete a listing (host-only, owner)' })
+  @ApiOperation({
+    summary: 'Delete a listing (host-only, owner, never booked)',
+    description:
+      'Only a listing nobody has booked can be deleted. One with reservations is withdrawn from sale by setting `active` to false instead, which leaves its bookings and reviews intact.',
+  })
   @ApiNoContentResponse({ description: 'Deleted.' })
   @ApiForbiddenResponse({ description: 'Not the owner of this listing.' })
   @ApiNotFoundResponse({ description: 'Listing not found.' })
+  @ApiConflictResponse({
+    description: 'The listing has bookings (LISTING_HAS_BOOKINGS).',
+  })
   remove(
     @CurrentUser() user: AuthUser,
     @Param('id', ParseUUIDPipe) id: string,

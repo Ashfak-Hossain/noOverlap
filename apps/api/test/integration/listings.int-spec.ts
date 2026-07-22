@@ -65,4 +65,86 @@ describe('Listings (e2e)', () => {
     const res = await request(app.getHttpServer()).get('/listings').expect(200);
     expect(Array.isArray(res.body)).toBe(true);
   });
+
+  describe('deleting', () => {
+    const DAY = 86_400_000;
+    let seq = 0;
+    const futureRange = () => {
+      const base = 2500 + seq++ * 10; // distinct windows so nothing collides
+      return {
+        checkIn: new Date(Date.now() + base * DAY).toISOString(),
+        checkOut: new Date(Date.now() + (base + 2) * DAY).toISOString(),
+      };
+    };
+
+    it('deletes a listing nobody has booked (204)', async () => {
+      const created = await create(hostToken).expect(201);
+      await request(app.getHttpServer())
+        .delete(`/listings/${created.body.id}`)
+        .set('Authorization', `Bearer ${hostToken}`)
+        .expect(204);
+
+      await request(app.getHttpServer())
+        .get(`/listings/${created.body.id}`)
+        .expect(404);
+    });
+
+    it('refuses to delete a listing that has bookings, and keeps them (409)', async () => {
+      const created = await create(hostToken).expect(201);
+      const booked = await request(app.getHttpServer())
+        .post('/reservations')
+        .set('Authorization', `Bearer ${guestToken}`)
+        .send({ listingId: created.body.id, ...futureRange() })
+        .expect(201);
+
+      const res = await request(app.getHttpServer())
+        .delete(`/listings/${created.body.id}`)
+        .set('Authorization', `Bearer ${hostToken}`)
+        .expect(409);
+      expect(res.body.type).toContain('listing-has-bookings');
+
+      // The point of the refusal: the guest's reservation is still there. Cascading the delete would
+      // have removed a booking they may have paid for, with nothing left to show it existed.
+      await request(app.getHttpServer())
+        .get(`/reservations/${booked.body.id}`)
+        .set('Authorization', `Bearer ${guestToken}`)
+        .expect(200);
+      await request(app.getHttpServer())
+        .get(`/listings/${created.body.id}`)
+        .expect(200);
+    });
+
+    it('pauses a booked listing instead: hidden from search, bookings intact', async () => {
+      const created = await create(hostToken).expect(201);
+      await request(app.getHttpServer())
+        .post('/reservations')
+        .set('Authorization', `Bearer ${guestToken}`)
+        .send({ listingId: created.body.id, ...futureRange() })
+        .expect(201);
+
+      await request(app.getHttpServer())
+        .patch(`/listings/${created.body.id}`)
+        .set('Authorization', `Bearer ${hostToken}`)
+        .send({ active: false })
+        .expect(200);
+
+      const browse = await request(app.getHttpServer())
+        .get('/listings')
+        .expect(200);
+      expect(
+        (browse.body as Array<{ id: string }>).some(
+          (l) => l.id === created.body.id,
+        ),
+      ).toBe(false);
+    });
+
+    it("forbids a host from deleting another host's listing (403)", async () => {
+      const created = await create(hostToken).expect(201);
+      const otherHost = (await registerAndLogin(app, Role.HOST)).accessToken;
+      await request(app.getHttpServer())
+        .delete(`/listings/${created.body.id}`)
+        .set('Authorization', `Bearer ${otherHost}`)
+        .expect(403);
+    });
+  });
 });

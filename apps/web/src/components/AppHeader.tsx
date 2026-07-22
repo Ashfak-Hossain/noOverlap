@@ -8,12 +8,16 @@ import { Button } from './Button';
 /**
  * Navigation, filtered by role.
  *
- * A guest is never shown host tools and vice versa — offering a link that leads to an empty or
- * forbidden page is worse than not offering it.
+ * Only the host tools are restricted, because only they are refused by the server — a guest reaching
+ * them would get a 403, and offering a link that leads nowhere is worse than not offering it.
+ *
+ * Trips is deliberately not restricted. Booking is open to any authenticated user, and a host can
+ * stay somewhere else exactly like anyone else; hiding the link left their own reservations
+ * unreachable while the API happily returned them.
  */
 const NAV: Array<{ to: string; label: string; end: boolean; role?: Role }> = [
   { to: '/', label: 'Explore', end: true },
-  { to: '/trips', label: 'Trips', end: false, role: 'GUEST' },
+  { to: '/trips', label: 'Trips', end: false },
   { to: '/host/listings', label: 'Listings', end: false, role: 'HOST' },
   { to: '/host/bookings', label: 'Bookings', end: false, role: 'HOST' },
 ];

@@ -4,7 +4,12 @@ import { Button } from '../../components/Button';
 import { Field } from '../../components/Field';
 import { Card, EmptyState, Skeleton } from '../../components/primitives';
 import { apiFetch } from '../../lib/api/client';
-import { listMyListings, listingKeys } from '../../lib/api/listings';
+import {
+  deleteListing,
+  listMyListings,
+  listingKeys,
+  updateListing,
+} from '../../lib/api/listings';
 import { ApiError } from '../../lib/api/problem';
 import type { Listing } from '../../lib/api/types';
 import { formatMoney } from '../../lib/format';
@@ -135,6 +140,113 @@ function ListingEditor({ onDone }: { onDone: () => void }) {
   );
 }
 
+/**
+ * The two ways a host stops renting a place, and the difference between them.
+ *
+ * Pausing is the everyday one: the listing leaves search and takes no new bookings, while everything
+ * that already happened on it stays. Deleting is only possible for a listing nobody ever booked — the
+ * server refuses the rest rather than taking their bookings, payments, and reviews with them. That
+ * refusal is rendered as guidance rather than as an error, because it is not a fault: it is the
+ * system saying the other action is the right one.
+ */
+function ListingActions({ listing }: { listing: Listing }) {
+  const queryClient = useQueryClient();
+  const [confirming, setConfirming] = useState(false);
+
+  const invalidate = () =>
+    // Both the host's own list and public browse results reflect this.
+    queryClient.invalidateQueries({ queryKey: listingKeys.all });
+
+  const togglePaused = useMutation({
+    mutationFn: () => updateListing(listing.id, { active: !listing.active }),
+    onSuccess: invalidate,
+  });
+
+  const remove = useMutation({
+    mutationFn: () => deleteListing(listing.id),
+    onSuccess: () => {
+      setConfirming(false);
+      void invalidate();
+    },
+  });
+
+  const hasBookings =
+    remove.error instanceof ApiError && remove.error.code === 'LISTING_HAS_BOOKINGS';
+
+  return (
+    <div className="mt-4 border-t border-line pt-3.5">
+      <div className="flex flex-wrap gap-2">
+        <Button
+          variant="secondary"
+          size="sm"
+          loading={togglePaused.isPending}
+          onClick={() => togglePaused.mutate()}
+        >
+          {listing.active ? 'Pause' : 'Resume'}
+        </Button>
+        {!confirming ? (
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => {
+              remove.reset();
+              setConfirming(true);
+            }}
+          >
+            Delete
+          </Button>
+        ) : (
+          <>
+            <Button
+              variant="danger"
+              size="sm"
+              loading={remove.isPending}
+              onClick={() => remove.mutate()}
+            >
+              Delete for good
+            </Button>
+            <Button variant="ghost" size="sm" onClick={() => setConfirming(false)}>
+              Keep it
+            </Button>
+          </>
+        )}
+      </div>
+
+      {confirming && !remove.isError && (
+        <p className="mt-2.5 text-[12.5px] text-ink-muted">
+          Deleting removes the listing entirely. Only a listing that has never been booked can be
+          deleted.
+        </p>
+      )}
+
+      {remove.isError && (
+        <p
+          role="alert"
+          className="mt-2.5 rounded-xl border border-line bg-surface-2 px-3 py-2.5 text-[12.5px] text-ink-muted"
+        >
+          {hasBookings ? (
+            <>
+              <strong className="font-semibold text-ink">This listing has bookings.</strong> They
+              can&rsquo;t be deleted along with it, so pause it instead — it stops taking new
+              bookings and disappears from search, and everything already booked stays as it is.
+            </>
+          ) : remove.error instanceof ApiError ? (
+            remove.error.message
+          ) : (
+            'Couldn’t delete this listing. Please try again.'
+          )}
+        </p>
+      )}
+
+      {togglePaused.isError && (
+        <p role="alert" className="mt-2.5 text-[12.5px] font-medium text-expired">
+          Couldn’t change this listing. Please try again.
+        </p>
+      )}
+    </div>
+  );
+}
+
 export function Component() {
   const [editing, setEditing] = useState(false);
 
@@ -213,6 +325,7 @@ export function Component() {
               <p className="mt-1 text-[12.5px] text-ink-faint">
                 Sleeps up to {listing.maxGuests}
               </p>
+              <ListingActions listing={listing} />
             </Card>
           ))}
         </div>

@@ -112,7 +112,11 @@ model Reservation {
   version         Int               @default(0)
   createdAt       DateTime          @default(now()) @map("created_at") @db.Timestamptz
 
-  listing  Listing   @relation(fields: [listingId], references: [id], onDelete: Cascade)
+  // Restrict, not Cascade: a reservation is financial history, and a host tidying up their listings
+  // must not be able to erase a booking someone paid for. Postgres refuses the delete outright, so the
+  // guarantee holds for a direct API call as much as for the interface. Withdrawing a listing from
+  // sale is what `active` is for -- it hides the listing without destroying what happened on it.
+  listing  Listing   @relation(fields: [listingId], references: [id], onDelete: Restrict)
   guest    User      @relation(fields: [guestId], references: [id], onDelete: Cascade)
   payments Payment[]
   review   Review?
