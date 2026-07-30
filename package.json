@@ -8,7 +8,7 @@
     "env:setup": "cp .env.example apps/api/.env && cp .env.example apps/worker/.env && cp .env.example packages/db/.env"
   },
   "private": true,
-  "packageManager": "pnpm@11.11.0",
+  "packageManager": "pnpm@11.15.1",
   "devDependencies": {
     "turbo": "^2.10.2"
   }

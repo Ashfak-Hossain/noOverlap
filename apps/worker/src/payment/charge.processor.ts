@@ -13,6 +13,12 @@ import {
 } from '@no-overlap/contracts';
 import { Job, Queue } from 'bullmq';
 import { PaymentService } from './payment.service';
+import {
+  context,
+  propagation,
+  trace,
+  SpanStatusCode,
+} from '@opentelemetry/api';
 
 /**
  * Consumes BookingHeld and charges the card — the one step that must not run inside an HTTP request
@@ -21,6 +27,7 @@ import { PaymentService } from './payment.service';
 @Processor(CHARGE_QUEUE)
 export class ChargeProcessor extends WorkerHost {
   private readonly logger = new Logger(ChargeProcessor.name);
+  private readonly tracer = trace.getTracer('booking.charge');
 
   constructor(
     private readonly payments: PaymentService,
@@ -40,17 +47,51 @@ export class ChargeProcessor extends WorkerHost {
    * `jobId` below additionally stops a redelivery from enqueueing a second result.
    */
   async process(job: Job<unknown>): Promise<void> {
-    // The trust boundary: this payload crossed a process boundary, so it is parsed, never assumed.
     const event = bookingHeldSchema.parse(job.data);
 
-    // Idempotent: a redelivered message replays the original outcome instead of charging again.
-    // A transient fault throws out of here, so BullMQ retries rather than releasing the booking.
-    const result = await this.payments.charge(event);
+    // Rebuild the context the booking was made in. With no traceContext — an older message — extract
+    // returns the current context and the charge just starts its own trace instead of failing.
+    const parentCtx = propagation.extract(
+      context.active(),
+      event.traceContext ?? {},
+    );
 
-    await this.results.add(result.type, result, {
-      jobId: `${result.type}-${event.idempotencyKey}`,
-    });
-    this.logger.log(`${result.type} for reservation ${event.reservationId}`);
+    await context.with(parentCtx, () =>
+      this.tracer.startActiveSpan('charge', async (span) => {
+        try {
+          const result = await this.payments.charge(event);
+
+          // Injected from inside the charge span, so the API settles under this trace rather than
+          // opening a third one. The result crosses a queue exactly as the booking did, and a queue
+          // carries no context of its own — the same reason the hold wrote it into the outbox event.
+          const carrier: Record<string, string> = {};
+          propagation.inject(context.active(), carrier);
+
+          await this.results.add(
+            result.type,
+            carrier.traceparent
+              ? {
+                  ...result,
+                  traceContext: {
+                    traceparent: carrier.traceparent,
+                    tracestate: carrier.tracestate,
+                  },
+                }
+              : result,
+            { jobId: `${result.type}-${event.idempotencyKey}` },
+          );
+          this.logger.log(
+            `${result.type} for reservation ${event.reservationId}`,
+          );
+        } catch (err) {
+          span.recordException(err as Error);
+          span.setStatus({ code: SpanStatusCode.ERROR });
+          throw err; // BullMQ still sees the failure and retries
+        } finally {
+          span.end();
+        }
+      }),
+    );
   }
 
   /**

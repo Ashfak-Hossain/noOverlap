@@ -30,6 +30,21 @@ services:
       timeout: 5s
       retries: 10
 
+  jaeger:
+    image: jaegertracing/all-in-one:1.60
+    restart: unless-stopped
+    environment:
+      # Accept spans over OTLP, which is what both apps will export. Off by default on this image.
+      COLLECTOR_OTLP_ENABLED: "true"
+    ports:
+      - "16686:16686" # web UI
+      - "4318:4318" # OTLP/HTTP
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:14269/"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
 volumes:
   postgres_data:
   redis_data:

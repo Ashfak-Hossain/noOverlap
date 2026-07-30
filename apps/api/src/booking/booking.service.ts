@@ -17,6 +17,7 @@ import {
   type RefundRequested,
 } from '@no-overlap/contracts';
 import { Queue } from 'bullmq';
+import { context, propagation } from '@opentelemetry/api';
 
 /**
  * What applying a payment result did to the reservation. Reported rather than thrown, because a
@@ -164,12 +165,27 @@ export class BookingService {
           },
         });
 
+        // The booking's own trace, captured here rather than where the event is published. The relay
+        // runs on a timer in a context of its own, seconds later; injecting there would parent the
+        // charge to the timer and split one booking into two unrelated traces. Written into the event
+        // so it survives the outbox and the queue, neither of which carries context on its own.
+        const carrier: Record<string, string> = {};
+        propagation.inject(context.active(), carrier);
+
         const event = {
           type: BOOKING_HELD,
           version: 1,
           reservationId: reservation.id,
           amountCents: reservation.priceTotalCents,
           idempotencyKey: reservation.id,
+          ...(carrier.traceparent
+            ? {
+                traceContext: {
+                  traceparent: carrier.traceparent,
+                  tracestate: carrier.tracestate,
+                },
+              }
+            : {}),
         } satisfies BookingHeld;
 
         await tx.outbox.create({

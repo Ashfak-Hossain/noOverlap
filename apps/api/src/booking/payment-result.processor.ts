@@ -10,6 +10,12 @@ import {
 } from '@no-overlap/contracts';
 import { Job, Queue } from 'bullmq';
 import { BookingService } from './booking.service';
+import {
+  context,
+  propagation,
+  trace,
+  SpanStatusCode,
+} from '@opentelemetry/api';
 
 /**
  * Settles reservations against the payment results the worker publishes — the return half of the
@@ -18,6 +24,7 @@ import { BookingService } from './booking.service';
 @Processor(RESULT_QUEUE)
 export class PaymentResultProcessor extends WorkerHost {
   private readonly logger = new Logger(PaymentResultProcessor.name);
+  private readonly tracer = trace.getTracer('booking.settlement');
 
   constructor(
     private readonly booking: BookingService,
@@ -32,33 +39,48 @@ export class PaymentResultProcessor extends WorkerHost {
    * genuine fault propagates, because only a fault is worth retrying.
    */
   async process(job: Job<unknown>): Promise<void> {
-    // Parsed at the trust boundary; the discriminated union narrows each branch to its own shape.
     const result = paymentResultSchema.parse(job.data);
+    const parentCtx = propagation.extract(
+      context.active(),
+      result.traceContext ?? {},
+    );
 
-    const settlement =
-      result.type === PAYMENT_SUCCEEDED
-        ? await this.booking.applyPaymentSucceeded(result.reservationId)
-        : await this.booking.applyPaymentFailed(result.reservationId);
+    await context.with(parentCtx, () =>
+      this.tracer.startActiveSpan('settle', async (span) => {
+        try {
+          const settlement =
+            result.type === PAYMENT_SUCCEEDED
+              ? await this.booking.applyPaymentSucceeded(result.reservationId)
+              : await this.booking.applyPaymentFailed(result.reservationId);
 
-    if (settlement.outcome === 'refund-required') {
-      this.logger.warn(
-        `Reservation ${result.reservationId} is ${settlement.status} but was charged; requesting refund`,
-      );
-      await this.refunds.add(
-        REFUND_REQUESTED,
-        {
-          type: REFUND_REQUESTED,
-          version: 1,
-          reservationId: result.reservationId,
-          idempotencyKey: result.idempotencyKey,
-        } satisfies RefundRequested,
-        { jobId: `${REFUND_REQUESTED}-${result.reservationId}` },
-      );
-      return;
-    }
+          if (settlement.outcome === 'refund-required') {
+            this.logger.warn(
+              `Reservation ${result.reservationId} is ${settlement.status} but was charged; requesting refund`,
+            );
+            await this.refunds.add(
+              REFUND_REQUESTED,
+              {
+                type: REFUND_REQUESTED,
+                version: 1,
+                reservationId: result.reservationId,
+                idempotencyKey: result.idempotencyKey,
+              } satisfies RefundRequested,
+              { jobId: `${REFUND_REQUESTED}-${result.reservationId}` },
+            );
+            return;
+          }
 
-    this.logger.log(
-      `${result.type} -> ${settlement.outcome} for reservation ${result.reservationId}`,
+          this.logger.log(
+            `${result.type} -> ${settlement.outcome} for reservation ${result.reservationId}`,
+          );
+        } catch (err) {
+          span.recordException(err as Error);
+          span.setStatus({ code: SpanStatusCode.ERROR });
+          throw err;
+        } finally {
+          span.end();
+        }
+      }),
     );
   }
 }
