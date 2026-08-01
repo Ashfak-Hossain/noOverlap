@@ -13,6 +13,11 @@
 # Every service pulls on every deploy. The tag is mutable, so a host that already holds a copy of it
 # counts that as a cache hit and keeps running the old build — a deploy that reports success while
 # changing nothing, which is a far more expensive failure than the seconds the pull costs.
+#
+# The tag is a variable so a rollback is a one-line operation. Deploys follow `latest`; setting
+# IMAGE_TAG to a commit sha pins every service to the build that commit produced. Each image is
+# published under both, which is the whole reason the immutable one exists — `latest` moves, so it can
+# never name the version to go back to.
 
 services:
   # Runs to completion and stops. Nothing serves traffic against a schema it has not been migrated to,
@@ -21,7 +26,7 @@ services:
   # A separate image because applying a migration needs the Prisma CLI, which the runtime images do
   # not carry: the processes that run continuously have no tooling capable of altering the schema.
   migrate:
-    image: ghcr.io/ashfak-hossain/nooverlap-migrate:latest
+    image: ghcr.io/ashfak-hossain/nooverlap-migrate:${IMAGE_TAG:-latest}
     pull_policy: always
     restart: "no"
     environment:
@@ -30,7 +35,7 @@ services:
       - dokploy-network
 
   api:
-    image: ghcr.io/ashfak-hossain/nooverlap-api:latest
+    image: ghcr.io/ashfak-hossain/nooverlap-api:${IMAGE_TAG:-latest}
     pull_policy: always
     restart: unless-stopped
     depends_on:
@@ -92,9 +97,21 @@ services:
       - traefik.http.routers.nooverlap-ws.entrypoints=websecure
       - traefik.http.routers.nooverlap-ws.tls.certresolver=letsencrypt
       - traefik.http.routers.nooverlap-ws.service=nooverlap-api
+      # The scrape endpoint carries no guest data, but it does describe the shape of internal traffic:
+      # backlog depth, queue depth, how often guests are losing races. There is no reason for that to
+      # answer the internet, and anything with a legitimate reason to read it runs on this network and
+      # reaches the container directly without passing through the proxy at all. Highest priority so it
+      # is claimed before the general `/api` rule below can forward it.
+      - traefik.http.routers.nooverlap-metrics.rule=Host(`${APP_DOMAIN}`) && Path(`/api/metrics`)
+      - traefik.http.routers.nooverlap-metrics.priority=40
+      - traefik.http.routers.nooverlap-metrics.entrypoints=websecure
+      - traefik.http.routers.nooverlap-metrics.tls.certresolver=letsencrypt
+      - traefik.http.routers.nooverlap-metrics.service=nooverlap-api
+      - traefik.http.routers.nooverlap-metrics.middlewares=nooverlap-metrics-deny
+      - traefik.http.middlewares.nooverlap-metrics-deny.ipallowlist.sourcerange=127.0.0.1/32
 
   worker:
-    image: ghcr.io/ashfak-hossain/nooverlap-worker:latest
+    image: ghcr.io/ashfak-hossain/nooverlap-worker:${IMAGE_TAG:-latest}
     pull_policy: always
     restart: unless-stopped
     depends_on:
@@ -116,7 +133,7 @@ services:
   # The compiled client, served as static files. Claims everything not already claimed above, because
   # any path it does not recognise is a route inside the application rather than a missing file.
   web:
-    image: ghcr.io/ashfak-hossain/nooverlap-web:latest
+    image: ghcr.io/ashfak-hossain/nooverlap-web:${IMAGE_TAG:-latest}
     pull_policy: always
     restart: unless-stopped
     networks:

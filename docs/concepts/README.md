@@ -21,6 +21,9 @@ way" of noOverlap.
   authenticated, do you have the role, and do you own the specific thing.
 - [error-model.md](error-model.md) — one error shape for the whole API, and why that consistency is
   more than cosmetic.
+- [tracing-a-booking.md](tracing-a-booking.md) — how one booking stays a single trace across a queue
+  that carries nothing of the connection that produced it, and the two mistakes that quietly split it
+  in two.
 - [testing.md](testing.md) — how the guarantees are proven, including the concurrency harness that
   fires a storm of bookings at a single slot.
 

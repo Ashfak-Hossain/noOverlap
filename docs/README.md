@@ -23,9 +23,10 @@ Read in whatever order suits you; this is the path that builds up cleanly.
 
 | Area                                       | What it holds                                                              |
 | ------------------------------------------ | -------------------------------------------------------------------------- |
-| [architecture/](architecture/)             | the system shape, the request-to-database path, and the decision records   |
-| [concepts/](concepts/)                     | the learning core: no-overlap, the booking lifecycle, auth, access control, the error model, testing |
+| [architecture/](architecture/)             | the system shape, the request-to-database path, the seams, and deployment  |
+| [concepts/](concepts/)                     | the learning core: no-overlap, the booking lifecycle, auth, access control, tracing, the error model, testing |
 | [architecture/decisions/](architecture/decisions/) | Architecture Decision Records: what was chosen, why, and what it cost |
+| [architecture/operations.md](architecture/operations.md) | operating the deployment: shipping a change, undoing one, and finding out what is wrong |
 | [glossary.md](glossary.md)                 | the vocabulary in one place                                                |
 
 ## How these docs are maintained

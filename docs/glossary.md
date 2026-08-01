@@ -157,6 +157,26 @@ that moment rather than on a timer, so an endpoint nobody reads costs nothing.
 the thousands while response times stay excellent, because the endpoint does not slow down when the
 relay falls behind.
 
+## Deployment
+
+**Mutable tag** — an image tag that moves, such as `latest`. Convenient to follow and useless for
+naming a version to return to, which is why every build is also published under the commit that
+produced it.
+
+**Immutable tag** — an image tag that always names the same build, here the commit sha. What makes a
+rollback a matter of pinning rather than rebuilding.
+
+**Migration job** — a container that applies pending schema changes and exits. Both services depend on
+it exiting successfully, so a failed migration becomes a deploy that does not happen rather than a
+system that half-changed.
+
+**Same-origin** — serving the client and the API from one hostname. Required rather than tidy: the
+refresh token is a cookie the browser returns only to the origin that set it.
+
+**Catch-all route** — the proxy rule that claims any path the more specific rules did not. It is what
+lets a client-side route survive a reload, and it is why a request to a missing API route returns the
+front page instead of an error. See [architecture/operations.md](architecture/operations.md).
+
 ## Cross-cutting
 
 **RFC 7807 / problem+json** — the standard error response shape (`type`, `title`, `status`, `detail`,

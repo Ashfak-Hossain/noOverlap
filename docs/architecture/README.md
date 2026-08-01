@@ -238,5 +238,68 @@ the one a scraper expects, so adding one later is configuration rather than code
 
 ## Deployment
 
-The deployment topology — the API, the worker, PostgreSQL, and Redis as a set of containers behind a
-reverse proxy — is on the roadmap and will be documented when it lands.
+The system runs at [nooverlap.ashfak.dev](https://nooverlap.ashfak.dev) on a single instance with one
+core and two gigabytes of memory. Six containers: the API, the worker, the compiled client behind
+nginx, a migration job that runs to completion and stops, and the PostgreSQL and Redis the deployment
+panel manages.
+
+```mermaid
+flowchart TB
+    Internet((Internet))
+    Proxy[Reverse proxy<br/>TLS, routes by path priority]
+
+    subgraph Host[One instance]
+        direction TB
+        Web[web — nginx, static files]
+        Api[api]
+        Worker[worker]
+        Migrate[migrate — runs once, exits]
+        DB[(PostgreSQL)]
+        Cache[(Redis)]
+    end
+
+    Internet -->|443| Proxy
+    Proxy -->|/socket.io| Api
+    Proxy -->|/api, prefix stripped| Api
+    Proxy -->|everything else| Web
+    Migrate -.must exit 0 first.-> Api
+    Migrate -.-> Worker
+    Api --- DB
+    Api --- Cache
+    Worker --- DB
+    Worker --- Cache
+```
+
+Only the four built from source are described by this repository. PostgreSQL and Redis are managed by
+the panel, because they hold the state that cannot be rebuilt from git and they need backups that a
+Compose file does not provide. That split is the central trade of the arrangement: the repository
+stops describing the whole system, and the durable half stops being one careless command from deletion.
+
+Nothing is compiled on the host. Images are built by the pipeline and published under two tags, one
+that moves and one that names a commit, which is what makes rollback a matter of pinning rather than
+rebuilding. A build on a two-gigabyte instance would take memory from the database it deploys next to,
+at exactly the wrong moment.
+
+The client and the API share one origin, and that is a requirement rather than a tidiness preference.
+The refresh token is an httpOnly cookie, which a browser returns only to the origin that set it; split
+across two hostnames, every reload would silently sign the user out. So the proxy routes by path
+priority — realtime first, then `/api` with the prefix removed, then the client as a catch-all — which
+reproduces exactly what the development server does locally.
+
+That catch-all has a sharp edge worth knowing before you meet it. When the API container is not
+running, its routing labels are absent, so requests to `/api` are claimed by the client's rule and
+return HTML with a 200 rather than an error. A dead backend behind a registered route answers with a
+gateway error; a backend whose route was never registered answers with the front page.
+
+The scrape endpoint is deliberately not routed to the internet. It carries no guest data, but it
+describes the shape of internal traffic, and anything with a legitimate reason to read it runs on the
+same network and reaches the container directly.
+
+Production runs without tracing. The backend measured over a gigabyte of resident memory, more than
+half the instance, and an exporter left configured with nothing collecting retries failed sends
+indefinitely rather than giving up. The trace above was captured locally, where a tracing backend can
+afford to run.
+
+The reasoning is recorded in [decisions/0023-deployment-shape.md](decisions/0023-deployment-shape.md),
+and the operator's side — deploying, rolling back, reading the seam, running a migration — is in
+[operations.md](operations.md).
