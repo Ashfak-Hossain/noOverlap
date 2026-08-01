@@ -9,6 +9,10 @@
 # Images are built by CI and pulled here. The target instance runs the database, the cache and the
 # proxy on one core; asking it to also compile the application during a deploy would take memory from
 # the thing it is meant to be serving, at the worst possible moment.
+#
+# Every service pulls on every deploy. The tag is mutable, so a host that already holds a copy of it
+# counts that as a cache hit and keeps running the old build — a deploy that reports success while
+# changing nothing, which is a far more expensive failure than the seconds the pull costs.
 
 services:
   # Runs to completion and stops. Nothing serves traffic against a schema it has not been migrated to,
@@ -18,6 +22,7 @@ services:
   # not carry: the processes that run continuously have no tooling capable of altering the schema.
   migrate:
     image: ghcr.io/ashfak-hossain/nooverlap-migrate:latest
+    pull_policy: always
     restart: "no"
     environment:
       DATABASE_URL: ${DATABASE_URL}
@@ -26,6 +31,7 @@ services:
 
   api:
     image: ghcr.io/ashfak-hossain/nooverlap-api:latest
+    pull_policy: always
     restart: unless-stopped
     depends_on:
       migrate:
@@ -50,7 +56,11 @@ services:
     healthcheck:
       # The application's own probe, which reports on Postgres and Redis rather than on itself — a
       # process that is up but cannot reach its database should not be receiving traffic.
-      test: ['CMD-SHELL', 'node -e "fetch(''http://localhost:3000/health'').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"']
+      test:
+        [
+          "CMD-SHELL",
+          'node -e "fetch(''http://localhost:3000/health'').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"',
+        ]
       interval: 15s
       timeout: 5s
       retries: 5
@@ -85,6 +95,7 @@ services:
 
   worker:
     image: ghcr.io/ashfak-hossain/nooverlap-worker:latest
+    pull_policy: always
     restart: unless-stopped
     depends_on:
       migrate:
@@ -106,6 +117,7 @@ services:
   # any path it does not recognise is a route inside the application rather than a missing file.
   web:
     image: ghcr.io/ashfak-hossain/nooverlap-web:latest
+    pull_policy: always
     restart: unless-stopped
     networks:
       - dokploy-network
