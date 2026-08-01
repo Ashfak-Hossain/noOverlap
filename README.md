@@ -1,6 +1,8 @@
 # noOverlap
 
-**[nooverlap.ashfak.dev](https://nooverlap.ashfak.dev)**
+**[nooverlap.ashfak.dev](https://nooverlap.ashfak.dev)** — sign in as `guest@demo.nooverlap.app`
+with the password `demo-guest-2026` to skip registration, or open the same listing in two browsers
+and watch one booking settle in both.
 
 A booking platform built around one hard guarantee: **a listing can never be double-booked, no matter
 how many people try to reserve the same dates at the same instant.** Most reservation systems treat
