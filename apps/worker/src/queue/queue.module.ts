@@ -28,6 +28,7 @@ import type { Env } from '../config/env.schema';
         connection: {
           host: config.get('REDIS_HOST', { infer: true }),
           port: config.get('REDIS_PORT', { infer: true }),
+          password: config.get('REDIS_PASSWORD', { infer: true }),
         },
       }),
     }),

@@ -12,6 +12,14 @@ export const envSchema = z.object({
   DATABASE_URL: z.url(),
   REDIS_HOST: z.string().min(1),
   REDIS_PORT: z.coerce.number().int().positive().default(6379),
+  // Optional because a local Redis on a private network has nothing to authenticate against, while a
+  // managed one refuses every command without it. Left unset, the client simply never sends AUTH.
+  // An empty value is normalized to absent: a declared-but-blank variable means "no password", and
+  // passing the empty string through would make the client attempt to authenticate with it.
+  REDIS_PASSWORD: z
+    .string()
+    .optional()
+    .transform((value) => value || undefined),
   // Auth secrets. Keys are base64-encoded PEM so a multi-line PEM survives as one env
   // value — the same shape a managed secret store hands over in production. RS256 splits trust:
   // the private key signs access tokens, the public key only verifies them. TTLs are strings

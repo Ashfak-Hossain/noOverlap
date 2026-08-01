@@ -12,6 +12,7 @@ export const redisProvider: Provider = {
     new Redis({
       host: config.get('REDIS_HOST', { infer: true }),
       port: config.get('REDIS_PORT', { infer: true }),
+      password: config.get('REDIS_PASSWORD', { infer: true }),
       maxRetriesPerRequest: null,
     }),
 };
