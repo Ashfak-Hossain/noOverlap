@@ -1,0 +1,122 @@
+# Production stack: the two Node services, and a job that brings the schema up to date before they
+# start. Deployed by Dokploy, which supplies the proxy and the certificate.
+#
+# Postgres and Redis are deliberately absent. They are stateful, they need backups, and Dokploy
+# already manages both — so they live there and are reached through the environment below. What stays
+# in this file is everything that is rebuilt from source, which keeps the deployable part of the
+# system readable from the repository rather than from a control panel.
+#
+# Images are built by CI and pulled here. The target instance runs the database, the cache and the
+# proxy on one core; asking it to also compile the application during a deploy would take memory from
+# the thing it is meant to be serving, at the worst possible moment.
+
+services:
+  # Runs to completion and stops. Nothing serves traffic against a schema it has not been migrated to,
+  # so both services wait for this to finish successfully.
+  #
+  # A separate image because applying a migration needs the Prisma CLI, which the runtime images do
+  # not carry: the processes that run continuously have no tooling capable of altering the schema.
+  migrate:
+    image: ghcr.io/ashfak-hossain/nooverlap-migrate:latest
+    restart: "no"
+    environment:
+      DATABASE_URL: ${DATABASE_URL}
+    networks:
+      - dokploy-network
+
+  api:
+    image: ghcr.io/ashfak-hossain/nooverlap-api:latest
+    restart: unless-stopped
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+    environment:
+      NODE_ENV: production
+      PORT: 3000
+      DATABASE_URL: ${DATABASE_URL}
+      REDIS_HOST: ${REDIS_HOST}
+      REDIS_PORT: ${REDIS_PORT:-6379}
+      JWT_PRIVATE_KEY_B64: ${JWT_PRIVATE_KEY_B64}
+      JWT_PUBLIC_KEY_B64: ${JWT_PUBLIC_KEY_B64}
+      JWT_ACCESS_TTL: ${JWT_ACCESS_TTL:-15m}
+      JWT_REFRESH_TTL: ${JWT_REFRESH_TTL:-7d}
+      HOLD_TTL: ${HOLD_TTL:-15m}
+      # No trace backend runs here. Jaeger measured over a gigabyte of resident memory, which is more
+      # than half of this instance — and an SDK left enabled with nowhere to export to retries failed
+      # sends indefinitely, which costs more than tracing is worth when nothing is collecting it. The
+      # trace that documents the architecture was captured locally, where the backend can afford to run.
+      OTEL_SDK_DISABLED: "true"
+    healthcheck:
+      # The application's own probe, which reports on Postgres and Redis rather than on itself — a
+      # process that is up but cannot reach its database should not be receiving traffic.
+      test: ['CMD-SHELL', 'node -e "fetch(''http://localhost:3000/health'').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"']
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
+    networks:
+      - dokploy-network
+    # The client and the API share one origin, and that is a requirement rather than a convenience:
+    # the refresh token is an httpOnly cookie the browser only returns to the site that set it. Split
+    # across two hostnames, every reload would silently sign the user out.
+    #
+    # So `/api` is routed here and the prefix removed, which is exactly what the development server
+    # does locally — the client asks for `/api/reservations`, the API answers `/reservations`, and
+    # neither knows the difference. The higher priority is what stops the client's catch-all rule
+    # below from claiming these first.
+    labels:
+      - traefik.enable=true
+      - traefik.http.routers.nooverlap-api.rule=Host(`${APP_DOMAIN}`) && PathPrefix(`/api`)
+      - traefik.http.routers.nooverlap-api.priority=20
+      - traefik.http.routers.nooverlap-api.entrypoints=websecure
+      - traefik.http.routers.nooverlap-api.tls.certresolver=letsencrypt
+      - traefik.http.routers.nooverlap-api.middlewares=nooverlap-api-strip
+      - traefik.http.middlewares.nooverlap-api-strip.stripprefix.prefixes=/api
+      - traefik.http.services.nooverlap-api.loadbalancer.server.port=3000
+      # Realtime negotiates on its own path rather than under /api, so it needs a route of its own.
+      # Traefik forwards the upgrade without special configuration; what it cannot do is guess that
+      # these requests belong to the API and not to the static client.
+      - traefik.http.routers.nooverlap-ws.rule=Host(`${APP_DOMAIN}`) && PathPrefix(`/socket.io`)
+      - traefik.http.routers.nooverlap-ws.priority=30
+      - traefik.http.routers.nooverlap-ws.entrypoints=websecure
+      - traefik.http.routers.nooverlap-ws.tls.certresolver=letsencrypt
+      - traefik.http.routers.nooverlap-ws.service=nooverlap-api
+
+  worker:
+    image: ghcr.io/ashfak-hossain/nooverlap-worker:latest
+    restart: unless-stopped
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+    environment:
+      NODE_ENV: production
+      DATABASE_URL: ${DATABASE_URL}
+      REDIS_HOST: ${REDIS_HOST}
+      REDIS_PORT: ${REDIS_PORT:-6379}
+      HOLD_TTL: ${HOLD_TTL:-15m}
+      OTEL_SDK_DISABLED: "true"
+    networks:
+      - dokploy-network
+    # No ports and no proxy label: this process serves nothing. It consumes a queue, which is why it
+    # can be restarted or scaled without anyone noticing.
+
+  # The compiled client, served as static files. Claims everything not already claimed above, because
+  # any path it does not recognise is a route inside the application rather than a missing file.
+  web:
+    image: ghcr.io/ashfak-hossain/nooverlap-web:latest
+    restart: unless-stopped
+    networks:
+      - dokploy-network
+    labels:
+      - traefik.enable=true
+      - traefik.http.routers.nooverlap-web.rule=Host(`${APP_DOMAIN}`)
+      - traefik.http.routers.nooverlap-web.priority=10
+      - traefik.http.routers.nooverlap-web.entrypoints=websecure
+      - traefik.http.routers.nooverlap-web.tls.certresolver=letsencrypt
+      - traefik.http.services.nooverlap-web.loadbalancer.server.port=80
+
+# Traefik routes only to containers it can reach, and the managed database and cache live here too.
+# Declared external because Dokploy owns it: this stack joins the network, it does not create it.
+networks:
+  dokploy-network:
+    external: true

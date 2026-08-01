@@ -31,6 +31,10 @@ async function bootstrap() {
   const document = SwaggerModule.createDocument(app, swaggerConfig);
   SwaggerModule.setup('docs', app, document);
 
+  // Without this the framework never runs its teardown, so connections stay open, the process
+  // cannot exit, and a container told to stop is killed instead — dropping whatever was in flight.
+  app.enableShutdownHooks();
+
   await app.listen(process.env.PORT ?? 3000);
 }
 bootstrap().catch((err) => {

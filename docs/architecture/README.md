@@ -218,6 +218,24 @@ unrelated traces. And the tracing library must load before anything it instrumen
 HTTP, Postgres, and Redis clients as they are required, so an import that lands earlier is captured
 unpatched and simply produces no spans.
 
+A trace explains one booking in depth. The other half of knowing what the system is doing is a handful
+of numbers about all of them, which the API reports on a scrape endpoint in the standard Prometheus
+format.
+
+The four it publishes were each chosen because something had already gone wrong without them. The
+outbox depth is the seam's vital sign: under load it climbed into the thousands while the booking
+endpoint posted its best latency of the run, because the endpoint does not slow down when the relay
+falls behind. Queue depths separate "nothing is happening" from "nothing is consuming", which look
+identical in logs and once hid a dead worker for an afternoon. Booking outcomes, split by whether the
+guest got the slot, make contention visible. And a counter of holds retried after a database deadlock
+measures something otherwise unobservable, since a retry that succeeds writes nothing at all.
+
+Values held in Postgres and Redis are read when the endpoint is called rather than on a timer, so an
+endpoint nobody scrapes costs nothing. There is deliberately no metrics server and no dashboard: on a
+single host those would stand beside the thing they monitor and share its failure modes. The format is
+the one a scraper expects, so adding one later is configuration rather than code —
+[decisions/0022-metrics-endpoint.md](decisions/0022-metrics-endpoint.md) has the reasoning.
+
 ## Deployment
 
 The deployment topology — the API, the worker, PostgreSQL, and Redis as a set of containers behind a

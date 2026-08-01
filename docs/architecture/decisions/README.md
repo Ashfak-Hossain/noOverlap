@@ -31,6 +31,7 @@ readable long after the choice was made.
 | [0019](0019-listings-are-deactivated-not-deleted.md) | A booked listing is deactivated, never deleted         | Accepted |
 | [0020](0020-tracing-backend.md)                      | Jaeger as the tracing backend                          | Accepted |
 | [0021](0021-load-testing.md)                         | Load measured at a fixed arrival rate                  | Accepted |
+| [0022](0022-metrics-endpoint.md)                     | A metrics endpoint, without a metrics stack            | Accepted |
 
 Numbers are assigned when a decision is taken and never reused, so the sequence reflects the order the
 questions actually arose. Records for parts of the system not yet built are written when that work

@@ -1,0 +1,17 @@
+# Keep the build context small and reproducible. node_modules in particular must never be copied:
+# the image installs its own from the lockfile, and a host tree built for a different platform would
+# quietly override it with binaries that cannot run.
+**/node_modules
+**/dist
+**/.turbo
+**/coverage
+.git
+.github
+docs
+postman
+**/.env
+**/.env.*
+!**/.env.example
+**/*.log
+.DS_Store
+apps/web/dist

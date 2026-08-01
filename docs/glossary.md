@@ -131,6 +131,32 @@ deploy and repeat numbers across instances.
 **Gap detection** — noticing a missed event from a break in those numbers, and re-reading instead of
 continuing from stale data. What makes best-effort delivery safe.
 
+## Observability
+
+**Span** — one unit of work with a start, an end, and a parent. **Trace** — the tree they form,
+describing a single operation end to end.
+
+**Trace context** — the small piece of data, a trace id and a parent span id, that lets a span in one
+process claim a parent in another. It travels in the message, because a queue carries nothing of the
+connection that produced it. See [concepts/realtime-updates.md](concepts/realtime-updates.md) for the
+same idea applied to events, and the architecture page for how a booking stays one trace across the
+seam.
+
+**Auto-instrumentation** — a library that produces spans by patching HTTP, database and cache clients
+as they are loaded. It has to load first: anything imported earlier is captured unpatched and produces
+no spans at all.
+
+**Counter / gauge** — a value that only increases, such as bookings attempted; and one that moves in
+both directions, such as the depth of a queue. A counter answers "how often", a gauge answers "how
+much, right now".
+
+**Scrape** — a read of the metrics endpoint. Values held in the database and the cache are fetched at
+that moment rather than on a timer, so an endpoint nobody reads costs nothing.
+
+**Backlog depth** — events committed but not yet published. The seam's vital sign: it can climb into
+the thousands while response times stay excellent, because the endpoint does not slow down when the
+relay falls behind.
+
 ## Cross-cutting
 
 **RFC 7807 / problem+json** — the standard error response shape (`type`, `title`, `status`, `detail`,
