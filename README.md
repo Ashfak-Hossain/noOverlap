@@ -124,5 +124,8 @@ than trusting what it holds. A stay that has ended can be reviewed once, by the 
 and listings show real ratings rather than placeholder ones.
 
 The web client is built on top of all of it: search, listing detail, the booking flow with a live hold
-countdown that resolves itself when payment settles, trips, reviews, and a host dashboard. Tracing,
-load numbers, and deployment are on the roadmap. The documentation grows alongside the code.
+countdown that resolves itself when payment settles, trips, reviews, and a host dashboard.
+
+A booking is traceable end to end as a single distributed trace, across both processes and both queue
+crossings — the picture is in [docs/architecture/](docs/architecture/). Deployment is on the roadmap.
+The documentation grows alongside the code.

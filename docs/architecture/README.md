@@ -190,12 +190,35 @@ sale is a separate operation, described in
 
 The vocabulary is collected in [../glossary.md](../glossary.md).
 
-## Observability and deployment
+## Observability
 
-Messages crossing the queue carry a trace-context field so a booking can be followed from the HTTP
-request into the worker as one trace rather than two unrelated fragments. The field is part of the
-message contract already, reserved deliberately so that instrumenting tracing is an additive change
-rather than a breaking one to a schema both processes validate; the reasoning is in
-[decisions/0008-trace-context-propagation.md](decisions/0008-trace-context-propagation.md). Wiring it to
-a tracing backend, and the deployment topology (the API, the worker, PostgreSQL, and Redis as a set of
-containers), are on the roadmap and will be documented as they land.
+One booking, one trace, across both processes:
+
+![A single distributed trace of a booking, spanning the API and the worker](images/booking-saga-trace.png)
+
+Read left to right it is the whole design in one picture. The request opens a transaction, writes the
+reservation and its event together, and commits. A gap follows — that is the relay's polling interval,
+real latency the outbox costs and worth seeing rather than hiding. Then `charge` appears under a
+different service name, because it is a different process. Beneath it sit the payment ledger writes
+that make the charge idempotent. Then `settle` crosses back to the API, moves the reservation to
+confirmed, and the guest's browser is notified, all still inside the same trace.
+
+Getting there took work that the picture makes look automatic. Instrumentation follows an HTTP request
+happily and stops dead at a queue, because the connection ends there; the context has to be carried in
+the message and re-established on the other side. That is what the `traceContext` field on every
+message is for, and it was reserved when the seam was first built precisely so that adding tracing
+later would not be a breaking change to a schema both processes validate. The reasoning is in
+[decisions/0008-trace-context-propagation.md](decisions/0008-trace-context-propagation.md), and the
+backend choice in [decisions/0020-tracing-backend.md](decisions/0020-tracing-backend.md).
+
+Two details are load-bearing and easy to get wrong. The context is captured in the request that makes
+the booking, not in the relay that publishes it — the relay runs on a timer in a context of its own,
+seconds later, and injecting there would parent the charge to the timer and split one booking into two
+unrelated traces. And the tracing library must load before anything it instruments: it patches the
+HTTP, Postgres, and Redis clients as they are required, so an import that lands earlier is captured
+unpatched and simply produces no spans.
+
+## Deployment
+
+The deployment topology — the API, the worker, PostgreSQL, and Redis as a set of containers behind a
+reverse proxy — is on the roadmap and will be documented when it lands.
