@@ -23,6 +23,11 @@ export const envSchema = z.object({
   JWT_ACCESS_TTL: z.string().default('15m'),
   JWT_REFRESH_TTL: z.string().default('7d'),
   HOLD_TTL: z.string().min(1).default('15m'),
+  // The production default stays 100 requests / 60s per IP. Configurable only so a load run can
+  // raise it: left hardcoded, a capacity measurement would be measuring the throttler refusing
+  // traffic rather than the system serving it.
+  THROTTLE_TTL_MS: z.coerce.number().int().positive().default(60_000),
+  THROTTLE_LIMIT: z.coerce.number().int().positive().default(100),
 });
 
 export type Env = z.infer<typeof envSchema>;
