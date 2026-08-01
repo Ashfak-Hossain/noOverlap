@@ -7,7 +7,7 @@ import { RealtimeGateway } from 'src/realtime/realtime.gateway';
 import { PrismaService } from 'src/prisma/prisma.service';
 import { CreateReservationDto } from './dto/create-reservation.dto';
 import { ReservationResponseDto } from './dto/reservation-response.dto';
-import { isExclusionViolation } from './exclusion-violation';
+import { isDeadlock, isExclusionViolation } from './exclusion-violation';
 import { Prisma, ReservationStatus } from '@no-overlap/db';
 import { BOOKING_HELD, type BookingHeld } from '@no-overlap/contracts';
 import { InjectQueue } from '@nestjs/bullmq';
@@ -98,6 +98,10 @@ export class BookingService {
    * `no_overlapping_active_reservations` exclusion constraint to reject overlaps at the
    * database level — exactly one of N racing callers commits; the rest surface as SLOT_TAKEN. There
    * is deliberately NO pre-SELECT to "check availability": that would reopen the TOCTOU race.
+   *
+   * @remarks Under heavy contention Postgres may abort a racing transaction to break a deadlock
+   * rather than let the constraint reject it. That is the same outcome reached by a different route,
+   * so the claim is retried once and the constraint gets to give its own answer.
    */
   async hold(
     guestId: string,
@@ -150,9 +154,9 @@ export class BookingService {
     );
     const priceTotalCents = nights * listing.nightlyPriceCents;
 
-    let held: ReservationResponseDto;
-    try {
-      held = await this.prisma.$transaction(async (tx) => {
+    // One attempt at claiming the slot: the reservation and its event, committed together.
+    const claimSlot = () =>
+      this.prisma.$transaction(async (tx) => {
         const reservation = await tx.reservation.create({
           select: RESERVATION_SELECT,
           data: {
@@ -198,6 +202,20 @@ export class BookingService {
 
         return reservation;
       });
+
+    let held: ReservationResponseDto;
+    try {
+      try {
+        held = await claimSlot();
+      } catch (err) {
+        // A deadlock means Postgres picked this transaction to abort so others could proceed; it
+        // wrote nothing and the condition is transient. Retried once rather than reported, because
+        // under contention it almost always means another hold reached the slot first — and telling
+        // a guest the server broke, when the truth is that they lost a race the system has a proper
+        // answer for, is the wrong answer to give. The retry meets the constraint and gets it.
+        if (!isDeadlock(err)) throw err;
+        held = await claimSlot();
+      }
     } catch (err) {
       if (isExclusionViolation(err))
         throw new AppException('RESERVATION_SLOT_TAKEN');
