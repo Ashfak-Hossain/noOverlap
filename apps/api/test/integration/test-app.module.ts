@@ -8,6 +8,7 @@ import { IdentityModule } from '../../src/identity/identity.module';
 import { ListingsModule } from '../../src/listings/listings.module';
 import { BookingModule } from '../../src/booking/booking.module';
 import { ReviewsModule } from '../../src/reviews/reviews.module';
+import { MetricsModule } from '../../src/metrics/metrics.module';
 
 /**
  * The application under integration test: the real feature modules (Identity, Listings, Booking) plus
@@ -31,6 +32,9 @@ import { ReviewsModule } from '../../src/reviews/reviews.module';
     RedisModule,
     IdentityModule,
     ListingsModule,
+    // Registered for the same reason RedisModule is: global means visible once registered, not
+    // registered automatically. Booking records its outcomes here.
+    MetricsModule,
     BookingModule,
     ReviewsModule,
   ],

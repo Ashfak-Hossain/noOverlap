@@ -4,6 +4,7 @@ import ms from 'ms';
 import { AppException } from 'src/common/errors/app.exception';
 import { ListingsService } from 'src/listings/listings.service';
 import { RealtimeGateway } from 'src/realtime/realtime.gateway';
+import { MetricsService } from 'src/metrics/metrics.service';
 import { PrismaService } from 'src/prisma/prisma.service';
 import { CreateReservationDto } from './dto/create-reservation.dto';
 import { ReservationResponseDto } from './dto/reservation-response.dto';
@@ -86,6 +87,7 @@ export class BookingService {
     @InjectQueue(REFUND_QUEUE) private readonly refundQueue: Queue,
     private readonly listings: ListingsService,
     private readonly realtime: RealtimeGateway,
+    private readonly metrics: MetricsService,
   ) {
     // Parse the human-friendly HOLD_TTL (e.g. "15m") once at startup; getOrThrow fails fast if unset.
     this.holdTtlMs = ms(
@@ -214,13 +216,17 @@ export class BookingService {
         // a guest the server broke, when the truth is that they lost a race the system has a proper
         // answer for, is the wrong answer to give. The retry meets the constraint and gets it.
         if (!isDeadlock(err)) throw err;
+        this.metrics.recordDeadlockRetry();
         held = await claimSlot();
       }
     } catch (err) {
-      if (isExclusionViolation(err))
+      if (isExclusionViolation(err)) {
+        this.metrics.recordAttempt('conflict');
         throw new AppException('RESERVATION_SLOT_TAKEN');
+      }
       throw err;
     }
+    this.metrics.recordAttempt('held');
 
     // Announced only after the transaction committed. Emitting inside it would tell watchers the slot
     // was taken before that was true, and a rollback would leave the claim standing with nothing

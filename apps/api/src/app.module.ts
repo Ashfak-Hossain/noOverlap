@@ -14,6 +14,7 @@ import { ThrottlerModule } from '@nestjs/throttler';
 import { ThrottlerProblemGuard } from './identity/guards/throttler-problem.guard';
 import { BookingModule } from './booking/booking.module';
 import { ReviewsModule } from './reviews/reviews.module';
+import { MetricsModule } from './metrics/metrics.module';
 import { ScheduleModule } from '@nestjs/schedule';
 
 @Module({
@@ -42,6 +43,7 @@ import { ScheduleModule } from '@nestjs/schedule';
     IdentityModule,
     ListingsModule,
     HealthModule,
+    MetricsModule,
     BookingModule,
     ReviewsModule,
   ],
